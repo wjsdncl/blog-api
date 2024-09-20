@@ -1,0 +1,109 @@
+### User APIs
+
+# GET all users
+GET http://localhost:3000/users
+
+###
+
+# GET a specific user by ID
+GET http://localhost:3000/users/6ba7b812-9dad-11d1-80b4-00c04fd430c8
+
+###
+
+# Create a new user
+POST http://localhost:3000/users
+Content-Type: application/json
+
+{
+  "email": "example@naver.com",
+  "name": "John Doe"
+}
+
+###
+
+# Update a specific user by ID
+PATCH http://localhost:3000/users/a5086a5d-3d66-4be2-8432-3de3c73b0482
+Content-Type: application/json
+
+{
+  "name": "Jane"
+}
+
+###
+
+# Delete a specific user by ID
+DELETE http://localhost:3000/users/b61d8ee1-7bcf-424e-9c5f-c0689fba8e7c
+
+### Post APIs
+
+# GET all posts
+GET http://localhost:3000/posts
+
+###
+
+# GET a specific post by title (slug)
+GET http://localhost:3000/posts/양자-컴퓨팅의-혁명적-발전
+
+###
+
+# Create a new post
+POST http://localhost:3000/posts
+Content-Type: application/json
+
+{
+  "title": "새로운 포스트222",
+  "content": "이것은 새로운 포스트의 내용입니다.",
+  "userId": "550e8400-e29b-41d4-a716-446655440000"
+}
+
+###
+
+# Update a specific post by ID
+PATCH http://localhost:3000/posts/1
+Content-Type: application/json
+
+{
+  "title": "수정된 포스트 제목"
+}
+
+###
+
+# Delete a specific post by ID
+DELETE http://localhost:3000/posts/1
+
+### Comment APIs
+
+# GET all comments
+GET http://localhost:3000/comments
+
+###
+
+# GET comments of a specific post by title (slug)
+GET http://localhost:3000/comments/양자-컴퓨팅의-혁명적-발전
+
+###
+
+# Create a new comment
+POST http://localhost:3000/comments
+Content-Type: application/json
+
+{
+  "content": "이것은 댓글입니다.",
+  "userId": "6ba7b812-9dad-11d1-80b4-00c04fd430c8",
+  "postId": 1
+}
+
+###
+
+# Update a specific comment by ID
+PATCH http://localhost:3000/comments/1
+Content-Type: application/json
+
+{
+  "content": "수정된 댓글 내용입니다."
+}
+
+###
+
+# Delete a specific comment by ID
+DELETE http://localhost:3000/comments/1
