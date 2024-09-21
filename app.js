@@ -4,6 +4,7 @@ dotenv.config();
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import cors from "cors";
 import { PrismaClient, Prisma } from "@prisma/client"; // Prisma Client를 가져옵니다.
 
 import { assert } from "superstruct"; // 데이터 검증을 위한 라이브러리
@@ -14,7 +15,13 @@ import crypto from "crypto"; // 랜덤 문자열 생성을 위해 crypto 모듈 
 const prisma = new PrismaClient(); // Prisma Client 인스턴스 생성
 
 const app = express();
-app.use(express.json()); // JSON 요청 파싱 미들웨어
+
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "https://wjsdncl-dev-hub.vercel.app/"],
+  })
+);
+app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET; // JWT 시크릿 키
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET; // RefreshToken을 위한 시크릿 키 설정
