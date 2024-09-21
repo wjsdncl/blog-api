@@ -165,10 +165,14 @@ app.get(
       skip: parseInt(offset),
       take: parseInt(limit),
       orderBy: { createdAt: "desc" }, // 최신 순으로 정렬
-      include: {
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
         _count: { select: { posts: true, comments: true } }, // 게시글 및 댓글 수 포함
         posts: { select: { category: true, title: true, content: true } }, // 유저가 작성한 포스트 정보 포함
-        comments: { select: { content: true } }, // 유저가 작성한 댓글 정보 포함
       },
     });
 

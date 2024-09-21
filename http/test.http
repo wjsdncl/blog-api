@@ -1,5 +1,40 @@
 ### User APIs
 
+### 회원가입 요청
+POST http://localhost:3000/auth/signup
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "name": "테스트유저",
+  "password": "password123"
+}
+
+### 로그인 요청
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "password123"
+}
+
+
+### 유저 목록 가져오기 (AccessToken 필요)
+GET http://localhost:3000/users
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MjY4OTQwMzIsImV4cCI6MTcyNzE1MzIzMn0.351Ld8Yru_zLG8kH-mGl2wWkUVhfBY8vqgou7KK1dlg
+
+
+### 토큰 갱신 요청 (RefreshToken 필요)
+POST http://localhost:3000/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MjY4OTQwMzIsImV4cCI6MTcyNzQ5ODgzMn0.sHud6IEP98cXeHqfTxsC1H2c8VGc3ITVnH_aQ31KK1A"
+}
+
+
+
 # GET all users
 GET http://localhost:3000/users
 
