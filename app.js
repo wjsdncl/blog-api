@@ -189,7 +189,12 @@ app.get(
 
     const user = await prisma.user.findUniqueOrThrow({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
         _count: { select: { posts: true, comments: true } }, // 게시글 및 댓글 수 포함
         posts: {
           select: {
@@ -201,7 +206,7 @@ app.get(
             updatedAt: true,
           },
         },
-        comments: { select: { content: true, createdAt: true } }, // 댓글 정보 포함
+        comments: { select: { content: true, createdAt: true } }, // 댓글 정보 포함 },
       },
     });
 
