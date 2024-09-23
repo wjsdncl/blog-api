@@ -19,7 +19,6 @@ const app = express();
 app.use(
   cors({
     origin: ["http://localhost:3000", "https://wjsdncl-dev-hub.vercel.app/"],
-    credentials: true,
   })
 );
 app.use(express.json());
@@ -90,9 +89,9 @@ function authenticateToken(req, res, next) {
   const token = authHeader && authHeader.split(" ")[1];
   if (!token) return res.status(401).send({ message: "접근이 거부되었습니다. 토큰이 없습니다." });
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) return res.status(403).send({ message: "토큰이 유효하지 않거나 만료되었습니다." });
-    req.user = user;
+    req.user = decoded;
     next();
   });
 }
@@ -132,7 +131,7 @@ app.post(
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) return res.status(401).send({ message: "비밀번호가 일치하지 않습니다." });
 
-    const { accessToken, refreshToken } = generateTokens(user.id);
+    const { accessToken, refreshToken } = generateTokens(user);
     res.send({ accessToken, refreshToken, user, message: "성공적으로 로그인되었습니다." });
   })
 );
@@ -188,35 +187,41 @@ app.get(
   })
 );
 
-// GET /users/:id -> 특정 유저 정보를 가져옴
+// GET /users/me -> accessToken을 사용하여 현재 유저 정보를 가져옴
 app.get(
-  "/users/:id",
-  authenticateToken, // JWT 인증
+  "/users/me",
+  authenticateToken,
   asyncHandler(async (req, res) => {
-    const { id } = req.params;
-
-    const user = await prisma.user.findUniqueOrThrow({
-      where: { id },
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
       select: {
         id: true,
         email: true,
         name: true,
         createdAt: true,
         updatedAt: true,
-        _count: { select: { posts: true, comments: true } }, // 게시글 및 댓글 수 포함
         posts: {
           select: {
-            _count: { select: { comments: true } }, // 댓글 수 포함
+            _count: { select: { comments: true } },
             category: true,
+            id: true,
             title: true,
-            content: true,
             createdAt: true,
-            updatedAt: true,
           },
         },
-        comments: { select: { content: true, createdAt: true } }, // 댓글 정보 포함 },
+        comments: {
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+          },
+        },
       },
     });
+
+    if (!user) {
+      return res.status(404).send({ message: "유저 정보를 찾을 수 없습니다." });
+    }
 
     res.send({ data: user, message: "유저 정보를 성공적으로 가져왔습니다." });
   })
@@ -322,9 +327,7 @@ app.post(
         .replace(/\s+/g, "-")
         .replace(/[^a-z0-9가-힣-]/g, "") || "untitled";
 
-    const randomString = crypto.randomBytes(2).toString("hex").slice(0, 3);
-
-    let slug = `${slugBase}-${randomString}`;
+    let slug = `${slugBase}`;
 
     while (await prisma.post.findUnique({ where: { slug } })) {
       slug = `${slugBase}-${crypto.randomBytes(2).toString("hex").slice(0, 3)}`;
@@ -503,4 +506,4 @@ app.delete(
   })
 );
 
-app.listen(process.env.PORT || 3000, () => console.log("Server Started"));
+app.listen(8000, () => console.log("Server Started"));

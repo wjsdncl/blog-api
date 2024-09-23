@@ -1,7 +1,7 @@
 ### User APIs
 
 ### 회원가입 요청
-POST http://localhost:3000/auth/signup
+POST http://localhost:8000/auth/signup
 Content-Type: application/json
 
 {
@@ -11,7 +11,7 @@ Content-Type: application/json
 }
 
 ### 로그인 요청
-POST http://localhost:3000/auth/login
+POST http://localhost:8000/auth/login
 Content-Type: application/json
 
 {
@@ -21,12 +21,16 @@ Content-Type: application/json
 
 
 ### 유저 목록 가져오기 (AccessToken 필요)
-GET http://localhost:3000/users
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MjY4OTQwMzIsImV4cCI6MTcyNzE1MzIzMn0.351Ld8Yru_zLG8kH-mGl2wWkUVhfBY8vqgou7KK1dlg
+GET http://localhost:8000/users
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjcxMDY2NDcsImV4cCI6MTcyNzM2NTg0N30.mcCIB6eCspz2l4rW1sHK4SnOcz7LjOnwHcYUwdE2bhM
 
+
+### 유저 정보 가져오기 (AccessToken 쿠키 필요)
+GET http://localhost:8000/users/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjcxMDY2NDcsImV4cCI6MTcyNzM2NTg0N30.mcCIB6eCspz2l4rW1sHK4SnOcz7LjOnwHcYUwdE2bhM
 
 ### 토큰 갱신 요청 (RefreshToken 필요)
-POST http://localhost:3000/auth/refresh
+POST http://localhost:8000/auth/refresh
 Content-Type: application/json
 
 {
@@ -36,17 +40,17 @@ Content-Type: application/json
 
 
 # GET all users
-GET http://localhost:3000/users
+GET http://localhost:8000/users
 
 ###
 
 # GET a specific user by ID
-GET http://localhost:3000/users/6ba7b812-9dad-11d1-80b4-00c04fd430c8
+GET http://localhost:8000/users/6ba7b812-9dad-11d1-80b4-00c04fd430c8
 
 ###
 
 # Create a new user
-POST http://localhost:3000/users
+POST http://localhost:8000/users
 Content-Type: application/json
 
 {
@@ -57,7 +61,7 @@ Content-Type: application/json
 ###
 
 # Update a specific user by ID
-PATCH http://localhost:3000/users/a5086a5d-3d66-4be2-8432-3de3c73b0482
+PATCH http://localhost:8000/users/a5086a5d-3d66-4be2-8432-3de3c73b0482
 Content-Type: application/json
 
 {
@@ -67,22 +71,22 @@ Content-Type: application/json
 ###
 
 # Delete a specific user by ID
-DELETE http://localhost:3000/users/b61d8ee1-7bcf-424e-9c5f-c0689fba8e7c
+DELETE http://localhost:8000/users/b61d8ee1-7bcf-424e-9c5f-c0689fba8e7c
 
 ### Post APIs
 
 # GET all posts
-GET http://localhost:3000/posts
+GET http://localhost:8000/posts
 
 ###
 
 # GET a specific post by title (slug)
-GET http://localhost:3000/posts/양자-컴퓨팅의-혁명적-발전
+GET http://localhost:8000/posts/양자-컴퓨팅의-혁명적-발전
 
 ###
 
 # Create a new post
-POST http://localhost:3000/posts
+POST http://localhost:8000/posts
 Content-Type: application/json
 
 {
@@ -94,7 +98,7 @@ Content-Type: application/json
 ###
 
 # Update a specific post by ID
-PATCH http://localhost:3000/posts/1
+PATCH http://localhost:8000/posts/1
 Content-Type: application/json
 
 {
@@ -104,22 +108,22 @@ Content-Type: application/json
 ###
 
 # Delete a specific post by ID
-DELETE http://localhost:3000/posts/1
+DELETE http://localhost:8000/posts/1
 
 ### Comment APIs
 
 # GET all comments
-GET http://localhost:3000/comments
+GET http://localhost:8000/comments
 
 ###
 
 # GET comments of a specific post by title (slug)
-GET http://localhost:3000/comments/양자-컴퓨팅의-혁명적-발전
+GET http://localhost:8000/comments/양자-컴퓨팅의-혁명적-발전
 
 ###
 
 # Create a new comment
-POST http://localhost:3000/comments
+POST http://localhost:8000/comments
 Content-Type: application/json
 
 {
@@ -131,7 +135,7 @@ Content-Type: application/json
 ###
 
 # Update a specific comment by ID
-PATCH http://localhost:3000/comments/1
+PATCH http://localhost:8000/comments/1
 Content-Type: application/json
 
 {
@@ -141,4 +145,4 @@ Content-Type: application/json
 ###
 
 # Delete a specific comment by ID
-DELETE http://localhost:3000/comments/1
+DELETE http://localhost:8000/comments/1
