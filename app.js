@@ -294,7 +294,14 @@ app.get(
       include: { _count: { select: { comments: true } } }, // 댓글 수 포함
     });
 
-    res.send({ totalPosts, posts });
+    // 카테고리 개수를 [key: value] 형식으로 계산
+    const categoryCounts = posts.reduce((acc, post) => {
+      const category = post.category;
+      acc[category] = (acc[category] || 0) + 1; // 카테고리 개수 증가
+      return acc;
+    }, {});
+
+    res.send({ totalPosts, categoryCounts, posts });
   })
 );
 
