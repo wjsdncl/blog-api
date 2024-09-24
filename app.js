@@ -115,7 +115,7 @@ app.post(
       },
     });
 
-    res.status(201).send({ data: newUser, message: "성공적으로 가입되었습니다." });
+    res.status(201).send(newUser);
   })
 );
 
@@ -132,7 +132,7 @@ app.post(
     if (!isPasswordValid) return res.status(401).send({ message: "비밀번호가 일치하지 않습니다." });
 
     const { accessToken, refreshToken } = generateTokens(user);
-    res.send({ accessToken, refreshToken, user, message: "성공적으로 로그인되었습니다." });
+    res.send({ accessToken, refreshToken, user });
   })
 );
 
@@ -148,7 +148,7 @@ app.post(
 
       // 새로운 토큰 생성
       const { accessToken, refreshToken: newRefreshToken } = generateTokens(decoded.userId);
-      res.send({ accessToken, refreshToken: newRefreshToken, message: "토큰이 성공적으로 갱신되었습니다." });
+      res.send({ accessToken, refreshToken: newRefreshToken });
     });
   })
 );
@@ -183,7 +183,7 @@ app.get(
       },
     });
 
-    res.send({ data: users, message: "유저 목록을 성공적으로 가져왔습니다." });
+    res.send(users);
   })
 );
 
@@ -221,10 +221,10 @@ app.get(
     });
 
     if (!user) {
-      return res.status(404).send({ message: "유저 정보를 찾을 수 없습니다." });
+      return res.status(404).send({ error, message: "유저 정보를 찾을 수 없습니다." });
     }
 
-    res.send({ data: user, message: "유저 정보를 성공적으로 가져왔습니다." });
+    res.send(user);
   })
 );
 
@@ -242,7 +242,7 @@ app.patch(
       data: req.body,
     });
 
-    res.send({ data: user, message: "유저 정보가 성공적으로 수정되었습니다." });
+    res.send(user);
   })
 );
 
@@ -257,7 +257,7 @@ app.delete(
       where: { id },
     });
 
-    res.status(204).send({ message: "유저가 성공적으로 삭제되었습니다." });
+    res.status(204).send();
   })
 );
 
@@ -294,7 +294,7 @@ app.get(
       include: { _count: { select: { comments: true } } }, // 댓글 수 포함
     });
 
-    res.send({ totalPosts, posts, message: "포스트 목록을 성공적으로 가져왔습니다." });
+    res.send({ totalPosts, posts });
   })
 );
 
@@ -308,7 +308,7 @@ app.get(
       where: { slug: title }, // 슬러그를 이용한 조회
     });
 
-    res.send({ data: post, message: "포스트를 성공적으로 가져왔습니다." });
+    res.send(post);
   })
 );
 
@@ -355,7 +355,7 @@ app.post(
       },
     });
 
-    res.status(201).send({ data: newPost, message: "포스트가 성공적으로 생성되었습니다." });
+    res.status(201).send(newPost);
   })
 );
 
@@ -373,7 +373,7 @@ app.patch(
       data: req.body,
     });
 
-    res.send({ data: post, message: "포스트가 성공적으로 수정되었습니다." });
+    res.send(post);
   })
 );
 
@@ -388,7 +388,7 @@ app.delete(
       where: { id },
     });
 
-    res.status(204).send({ message: "포스트가 성공적으로 삭제되었습니다." });
+    res.status(204).send();
   })
 );
 
@@ -470,7 +470,7 @@ app.post(
       },
     });
 
-    res.status(201).send({ data: newComment, message: "댓글이 성공적으로 작성되었습니다." });
+    res.status(201).send(newComment);
   })
 );
 
@@ -488,7 +488,7 @@ app.patch(
       data: req.body,
     });
 
-    res.send({ data: comment, message: "댓글이 성공적으로 수정되었습니다." });
+    res.send(comment);
   })
 );
 
@@ -503,7 +503,7 @@ app.delete(
       where: { id },
     });
 
-    res.status(204).send({ message: "댓글이 성공적으로 삭제되었습니다." });
+    res.status(204).send();
   })
 );
 
