@@ -200,6 +200,7 @@ app.get(
         name: true,
         createdAt: true,
         updatedAt: true,
+        isAdmin: true,
         posts: {
           select: {
             _count: { select: { comments: true } },
@@ -232,7 +233,7 @@ app.patch(
   "/users/:id",
   authenticateToken, // JWT 인증
   asyncHandler(async (req, res) => {
-    assert(req.body, UpdateUser); // 유효성 검사
+    assert({ email: req.body.email, name: req.body.name }, UpdateUser); // 유효성 검사
 
     const { id } = req.params;
 

@@ -27,7 +27,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1Z
 
 ### 유저 정보 가져오기 (AccessToken 쿠키 필요)
 GET http://localhost:8000/users/me
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjcxMDY2NDcsImV4cCI6MTcyNzM2NTg0N30.mcCIB6eCspz2l4rW1sHK4SnOcz7LjOnwHcYUwdE2bhM
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjcxNDc0NTgsImV4cCI6MTcyNzQwNjY1OH0.zr6D2Bgr1VaulUGYG0-mQ5Dxq7aVC_doVBQ-ouNJfD4
+
 
 ### 토큰 갱신 요청 (RefreshToken 필요)
 POST http://localhost:8000/auth/refresh
@@ -61,11 +62,13 @@ Content-Type: application/json
 ###
 
 # Update a specific user by ID
-PATCH http://localhost:8000/users/a5086a5d-3d66-4be2-8432-3de3c73b0482
+PATCH http://localhost:8000/users/1bb5ef34-71f8-4116-8c50-45b588dcc660
 Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjcxNDc0NTgsImV4cCI6MTcyNzQwNjY1OH0.zr6D2Bgr1VaulUGYG0-mQ5Dxq7aVC_doVBQ-ouNJfD4
 
 {
-  "name": "Jane"
+  "name": "John Doe",
+  "isAdmin": true
 }
 
 ###
