@@ -18,7 +18,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://wjsdncl-dev-hub.vercel.app/"],
+    origin: ["http://localhost:3000", "https://wjsdncl-dev-hub.vercel.app"],
   })
 );
 app.use(express.json());
