@@ -40,29 +40,45 @@ function asyncHandler(handler) {
     try {
       await handler(req, res);
     } catch (e) {
-      // Superstruct 검증 오류 및 Prisma Client 검증 오류 처리
-      if (e.name === "StructError" || e instanceof Prisma.PrismaClientValidationError) {
-        res.status(400).send({ message: e.message ?? "Bad Request: Invalid input data." });
-      }
-      // Prisma에서 발생하는 요청 오류 처리
-      else if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      if (e.name === "StructError") {
+        // Superstruct 검증 오류
+        res.status(400).send({
+          message: `입력 데이터 오류: ${e.key} 필드가 올바르지 않습니다. ${e.message}`,
+        });
+      } else if (e instanceof Prisma.PrismaClientValidationError) {
+        // Prisma Client 검증 오류
+        res.status(400).send({
+          message: "요청 데이터가 잘못되었습니다. 입력한 데이터가 요구사항과 일치하지 않습니다.",
+        });
+      } else if (e instanceof Prisma.PrismaClientKnownRequestError) {
+        // Prisma에서 발생하는 요청 오류 처리
         switch (e.code) {
           case "P2025": // 리소스를 찾을 수 없을 때
-            res.status(404).send({ message: "Resource not found." });
+            res.status(404).send({
+              message: "리소스를 찾을 수 없습니다. 요청한 데이터가 존재하지 않습니다.",
+            });
             break;
           case "P2002": // 고유 제약 조건 위반 시
-            console.error("Unique constraint failed on:", e.meta?.target); // 오류 발생 필드 확인
-            res.status(409).send({ message: `Unique constraint failed on: ${e.meta?.target || "unknown field"}` });
+            res.status(409).send({
+              message: `중복된 데이터 오류: ${e.meta?.target || "알 수 없는 필드"}에 중복된 값이 있습니다.`,
+            });
             break;
           default: // 기타 Prisma에서 발생하는 요청 오류
-            res.status(400).send({ message: e.message ?? "Bad Request: Known error." });
+            res.status(400).send({
+              message: `알려진 오류: ${e.message}. 요청을 확인하고 다시 시도하십시오.`,
+            });
         }
       } else if (e instanceof jwt.JsonWebTokenError || e.name === "JsonWebTokenError") {
         // JWT 토큰 관련 오류 처리
-        res.status(401).send({ message: "Unauthorized: Invalid token." });
+        res.status(401).send({
+          message: "인증 오류: 유효하지 않거나 만료된 토큰입니다.",
+        });
       } else {
         // 기타 내부 서버 오류 처리
-        res.status(500).send({ message: e.message ?? "Internal Server Error." });
+        console.error("Unhandled Error:", e); // 추가적으로 콘솔에 상세 오류를 로깅
+        res.status(500).send({
+          message: `서버 오류: ${e.message}. 문제가 계속되면 관리자에게 문의하세요.`,
+        });
       }
     }
   };
@@ -342,7 +358,15 @@ app.post(
     }
 
     const newPost = await prisma.post.create({
-      data: { title, content, slug, coverImg, category, tags, user: { connect: { id: userId } } },
+      data: {
+        title,
+        content,
+        slug,
+        coverImg: coverImg ?? null,
+        category: category ?? null,
+        tags,
+        user: { connect: { id: userId } },
+      },
       include: {
         user: { select: { email: true, name: true } },
         comments: {
