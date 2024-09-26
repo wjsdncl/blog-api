@@ -27,7 +27,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1Z
 
 ### 유저 정보 가져오기 (AccessToken 쿠키 필요)
 GET http://localhost:8000/users/me
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjcxNDc0NTgsImV4cCI6MTcyNzQwNjY1OH0.zr6D2Bgr1VaulUGYG0-mQ5Dxq7aVC_doVBQ-ouNJfD4
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjczNTgyMjYsImV4cCI6MTcyNzYxNzQyNn0.4UmHmzMbQccp5UPHy77Ft28K46mt0YLCbV3ouhECvw0
 
 
 ### 토큰 갱신 요청 (RefreshToken 필요)
@@ -91,11 +91,15 @@ GET http://localhost:8000/posts/양자-컴퓨팅의-혁명적-발전
 # Create a new post
 POST http://localhost:8000/posts
 Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjczNTgyNjUsImV4cCI6MTcyNzYxNzQ2NX0.Sc09ONgK5c-Nm9pcyK1Aj2qioQzc1wAKlwYivryvrQw
 
 {
-  "title": "새로운 포스트222",
-  "content": "이것은 새로운 포스트의 내용입니다.",
-  "userId": "550e8400-e29b-41d4-a716-446655440000"
+  "title": "테스트 포스트 제목",
+  "content": "이것은 테스트 포스트의 내용입니다.",
+  "userId": "1bb5ef34-71f8-4116-8c50-45b588dcc660",
+  "coverImg": "https://example.com/image.jpg", 
+  "category": "테스트 카테고리", 
+  "tags": ["tag1", "tag2"] 
 }
 
 ###

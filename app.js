@@ -48,7 +48,7 @@ function asyncHandler(handler) {
       } else if (e instanceof Prisma.PrismaClientValidationError) {
         // Prisma Client 검증 오류
         res.status(400).send({
-          message: "요청 데이터가 잘못되었습니다. 입력한 데이터가 요구사항과 일치하지 않습니다.",
+          message: `입력 데이터 오류: ${e.message} 필드가 올바르지 않습니다.`,
         });
       } else if (e instanceof Prisma.PrismaClientKnownRequestError) {
         // Prisma에서 발생하는 요청 오류 처리
@@ -340,16 +340,16 @@ app.post(
   "/posts",
   authenticateToken, // JWT 인증
   asyncHandler(async (req, res) => {
-    const { title, content, userId, coverImg, category, tags } = req.body;
+    console.log(req.body);
+    const { title, content, userId, coverImg, category, tags = [] } = req.body;
     assert({ title, content, userId }, CreatePost); // Superstruct를 사용한 유효성 검사
 
     // 고유한 슬러그 생성
-    let slugBase =
-      title
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9가-힣-]/g, "") || "untitled";
+    let slugBase = title
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9가-힣-]/g, "");
 
     let slug = `${slugBase}`;
 
@@ -362,27 +362,13 @@ app.post(
         title,
         content,
         slug,
-        coverImg: coverImg ?? null,
-        category: category ?? null,
+        coverImg: coverImg === "" ? null : coverImg,
+        category: category === "" ? null : category,
         tags,
         user: { connect: { id: userId } },
       },
       include: {
         user: { select: { email: true, name: true } },
-        comments: {
-          select: {
-            id: true,
-            content: true,
-            createdAt: true,
-            include: {
-              user: { select: { email: true, name: true } },
-              replies: {
-                include: { user: { select: { email: true, name: true } } },
-              },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-        },
       },
     });
 
