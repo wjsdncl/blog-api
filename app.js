@@ -5,6 +5,8 @@ import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import cors from "cors";
+import { getChoseong } from "es-hangul";
+
 import { PrismaClient, Prisma } from "@prisma/client"; // Prisma Client를 가져옵니다.
 
 import { assert } from "superstruct"; // 데이터 검증을 위한 라이브러리
@@ -289,46 +291,55 @@ app.delete(
 app.get(
   "/posts",
   asyncHandler(async (req, res) => {
-    const { offset = 0, limit = 10, order = "newest", search = "" } = req.query; // 검색어 추가
+    const { offset = 0, limit = 10, order = "newest", search = "" } = req.query;
 
     let orderBy;
     switch (order) {
       case "oldest":
-        orderBy = { createdAt: "asc" }; // 오래된 순 정렬
+        orderBy = { createdAt: "asc" };
         break;
       case "newest":
       default:
-        orderBy = { createdAt: "desc" }; // 최신 순 정렬
+        orderBy = { createdAt: "desc" };
     }
 
-    // 검색어 필터링 추가
-    const where = search
-      ? {
-          OR: [
-            { title: { contains: search, mode: "insensitive" } },
-            { content: { contains: search, mode: "insensitive" } },
-          ],
-        }
-      : {};
-
-    const totalPosts = await prisma.post.count({ where });
-
+    // 포스트 정보를 가져옵니다.
     const posts = await prisma.post.findMany({
-      where,
       orderBy,
       skip: parseInt(offset),
       take: parseInt(limit),
-      include: { _count: { select: { comments: true } } }, // 댓글 수 포함
+      include: { _count: { select: { comments: true } } },
     });
 
-    // 카테고리 개수를 [key: value] 형식으로 계산
-    const categoryCounts = posts.reduce((acc, post) => {
+    if (!search) {
+      const totalPosts = await prisma.post.count();
+
+      // 카테고리 개수를 계산
+      const categoryCounts = posts.reduce((acc, post) => {
+        const category = post.category;
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      }, {});
+
+      return res.send({ totalPosts, categoryCounts, posts });
+    }
+
+    // 검색어가 있는 경우 초성 검색을 통해 필터링
+    const decomposedSearch = getChoseong(search).replace(/\s+/g, "");
+
+    const filteredPosts = posts.filter((post) => {
+      const titleDecomposed = getChoseong(post.title).replace(/\s+/g, "");
+
+      return titleDecomposed.includes(decomposedSearch);
+    });
+
+    const categoryCounts = filteredPosts.reduce((acc, post) => {
       const category = post.category;
-      acc[category] = (acc[category] || 0) + 1; // 카테고리 개수 증가
+      acc[category] = (acc[category] || 0) + 1;
       return acc;
     }, {});
 
-    res.send({ totalPosts, categoryCounts, posts });
+    res.send({ totalPosts: filteredPosts.length, categoryCounts, posts: filteredPosts });
   })
 );
 
