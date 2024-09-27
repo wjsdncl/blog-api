@@ -79,7 +79,7 @@ DELETE http://localhost:8000/users/b61d8ee1-7bcf-424e-9c5f-c0689fba8e7c
 ### Post APIs
 
 # GET all posts
-GET http://localhost:8000/posts?search=ㅅㄱㄹ
+GET http://localhost:8000/posts
 
 ###
 

@@ -291,7 +291,7 @@ app.delete(
 app.get(
   "/posts",
   asyncHandler(async (req, res) => {
-    const { offset = 0, limit = 10, order = "newest", search = "" } = req.query;
+    const { offset = 0, limit = 10, order = "newest", category = "", search = "" } = req.query;
 
     let orderBy;
     switch (order) {
@@ -303,43 +303,47 @@ app.get(
         orderBy = { createdAt: "desc" };
     }
 
-    // 포스트 정보를 가져옵니다.
+    // 전체 포스트 개수 계산
+    const totalPosts = await prisma.post.count();
+
+    // 카테고리 카운트 계산
+    const allCategoryCounts = await prisma.post.groupBy({
+      by: ["category"],
+      _count: { category: true },
+    });
+
+    const categoryCounts = allCategoryCounts.reduce((acc, curr) => {
+      if (curr.category && curr.category.trim() !== "") {
+        acc[curr.category] = curr._count.category;
+      }
+      return acc;
+    }, {});
+
+    // 검색 조건 설정
+    const where = {
+      ...(category && { category }),
+      ...(search && {
+        choseongTitle: {
+          contains: getChoseong(search).replace(/\s+/g, ""),
+          mode: "insensitive",
+        },
+      }),
+    };
+
+    // 검색된 포스트 가져오기
     const posts = await prisma.post.findMany({
+      where,
       orderBy,
       skip: parseInt(offset),
       take: parseInt(limit),
       include: { _count: { select: { comments: true } } },
     });
 
-    if (!search) {
-      const totalPosts = await prisma.post.count();
-
-      // 카테고리 개수를 계산
-      const categoryCounts = posts.reduce((acc, post) => {
-        const category = post.category;
-        acc[category] = (acc[category] || 0) + 1;
-        return acc;
-      }, {});
-
-      return res.send({ totalPosts, categoryCounts, posts });
-    }
-
-    // 검색어가 있는 경우 초성 검색을 통해 필터링
-    const decomposedSearch = getChoseong(search).replace(/\s+/g, "");
-
-    const filteredPosts = posts.filter((post) => {
-      const titleDecomposed = getChoseong(post.title).replace(/\s+/g, "");
-
-      return titleDecomposed.includes(decomposedSearch);
+    res.send({
+      totalPosts,
+      categoryCounts,
+      posts,
     });
-
-    const categoryCounts = filteredPosts.reduce((acc, post) => {
-      const category = post.category;
-      acc[category] = (acc[category] || 0) + 1;
-      return acc;
-    }, {});
-
-    res.send({ totalPosts: filteredPosts.length, categoryCounts, posts: filteredPosts });
   })
 );
 
@@ -362,9 +366,8 @@ app.post(
   "/posts",
   authenticateToken, // JWT 인증
   asyncHandler(async (req, res) => {
-    console.log(req.body);
     const { title, content, userId, coverImg, category, tags = [] } = req.body;
-    assert({ title, content, userId }, CreatePost); // Superstruct를 사용한 유효성 검사
+    assert({ title, content, userId }, CreatePost);
 
     // 고유한 슬러그 생성
     let slugBase = title
@@ -374,14 +377,16 @@ app.post(
       .replace(/[^a-z0-9가-힣ㄱ-ㅎ-]/g, "");
 
     let slug = `${slugBase}`;
-
     while (await prisma.post.findUnique({ where: { slug } })) {
       slug = `${slugBase}-${crypto.randomBytes(2).toString("hex").slice(0, 3)}`;
     }
 
+    const choseongTitle = getChoseong(title).replace(/\s+/g, "");
+
     const newPost = await prisma.post.create({
       data: {
         title,
+        choseongTitle,
         content,
         slug,
         coverImg: coverImg === "" ? null : coverImg,
@@ -403,13 +408,19 @@ app.patch(
   "/posts/:id",
   authenticateToken, // JWT 인증
   asyncHandler(async (req, res) => {
-    assert(req.body, UpdatePost); // 유효성 검사
+    const { title } = req.body;
+
+    // 수정된 제목이 있을 경우 choseongTitle 업데이트
+    const choseongTitle = title ? getChoseong(title).replace(/\s+/g, "") : undefined;
 
     const id = Number(req.params.id);
 
     const post = await prisma.post.update({
       where: { id },
-      data: req.body,
+      data: {
+        ...req.body,
+        ...(choseongTitle && { choseongTitle }), // 초성 저장
+      },
     });
 
     res.send(post);

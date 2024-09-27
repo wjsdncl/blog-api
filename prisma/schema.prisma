@@ -27,16 +27,17 @@ model User {
 }
 
 model Post {
-  id        Int      @id @default(autoincrement())
-  slug      String   @unique
-  coverImg  String?
-  category  String?
-  title     String
-  content   String?
-  tags      String[]
-  likes     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  slug          String   @unique
+  coverImg      String?
+  category      String?
+  title         String
+  choseongTitle String?
+  content       String?
+  tags          String[]
+  likes         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
