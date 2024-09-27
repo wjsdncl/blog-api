@@ -289,7 +289,7 @@ app.delete(
 app.get(
   "/posts",
   asyncHandler(async (req, res) => {
-    const { offset = 0, limit = 10, order = "newest" } = req.query; // 페이지네이션 및 정렬 옵션
+    const { offset = 0, limit = 10, order = "newest", search = "" } = req.query; // 검색어 추가
 
     let orderBy;
     switch (order) {
@@ -301,9 +301,20 @@ app.get(
         orderBy = { createdAt: "desc" }; // 최신 순 정렬
     }
 
-    const totalPosts = await prisma.post.count();
+    // 검색어 필터링 추가
+    const where = search
+      ? {
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { content: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {};
+
+    const totalPosts = await prisma.post.count({ where });
 
     const posts = await prisma.post.findMany({
+      where,
       orderBy,
       skip: parseInt(offset),
       take: parseInt(limit),
