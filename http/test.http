@@ -97,8 +97,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1Z
   "title": "테스트 포스트 제목",
   "content": "이것은 테스트 포스트의 내용입니다.",
   "userId": "1bb5ef34-71f8-4116-8c50-45b588dcc660",
-  "coverImg": "https://example.com/image.jpg", 
-  "category": "테스트 카테고리", 
   "tags": ["tag1", "tag2"] 
 }
 

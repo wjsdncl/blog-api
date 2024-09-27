@@ -349,7 +349,7 @@ app.post(
       .toLowerCase()
       .trim()
       .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9가-힣-]/g, "");
+      .replace(/[^a-z0-9가-힣ㄱ-ㅎ-]/g, "");
 
     let slug = `${slugBase}`;
 
