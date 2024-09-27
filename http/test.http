@@ -113,7 +113,8 @@ Content-Type: application/json
 ###
 
 # Delete a specific post by ID
-DELETE http://localhost:8000/posts/1
+DELETE http://localhost:8000/posts/21
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjczNTgyNjUsImV4cCI6MTcyNzYxNzQ2NX0.Sc09ONgK5c-Nm9pcyK1Aj2qioQzc1wAKlwYivryvrQw
 
 ### Comment APIs
 

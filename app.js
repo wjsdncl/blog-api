@@ -383,7 +383,7 @@ app.patch(
   asyncHandler(async (req, res) => {
     assert(req.body, UpdatePost); // 유효성 검사
 
-    const { id } = req.params;
+    const id = Number(req.params.id);
 
     const post = await prisma.post.update({
       where: { id },
@@ -399,7 +399,7 @@ app.delete(
   "/posts/:id",
   authenticateToken, // JWT 인증
   asyncHandler(async (req, res) => {
-    const { id } = req.params;
+    const id = Number(req.params.id);
 
     await prisma.post.delete({
       where: { id },
@@ -498,7 +498,7 @@ app.patch(
   asyncHandler(async (req, res) => {
     assert(req.body, UpdateComment); // 유효성 검사
 
-    const { id } = req.params;
+    const id = Number(req.params.id);
 
     const comment = await prisma.comment.update({
       where: { id },
@@ -514,7 +514,7 @@ app.delete(
   "/comments/:id",
   authenticateToken, // JWT 인증
   asyncHandler(async (req, res) => {
-    const { id } = req.params;
+    const id = Number(req.params.id);
 
     await prisma.comment.delete({
       where: { id },
