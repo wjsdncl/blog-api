@@ -291,7 +291,7 @@ app.delete(
 app.get(
   "/posts",
   asyncHandler(async (req, res) => {
-    const { offset = 0, limit = 10, order = "newest", category = "", search = "" } = req.query;
+    const { offset = 0, limit = 10, order = "newest", category = "", tag = "", search = "" } = req.query;
 
     let orderBy;
     switch (order) {
@@ -322,6 +322,7 @@ app.get(
     // 검색 조건 설정
     const where = {
       ...(category && { category }),
+      ...(tag && { tags: { has: tag } }),
       ...(search && {
         choseongTitle: {
           contains: getChoseong(search).replace(/\s+/g, ""),
