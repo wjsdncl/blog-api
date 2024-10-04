@@ -1,5 +1,3 @@
-### User APIs
-
 ### 회원가입 요청
 POST http://localhost:8000/auth/signup
 Content-Type: application/json
@@ -19,136 +17,93 @@ Content-Type: application/json
   "password": "password123"
 }
 
-
 ### 유저 목록 가져오기 (AccessToken 필요)
 GET http://localhost:8000/users
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjcxMDY2NDcsImV4cCI6MTcyNzM2NTg0N30.mcCIB6eCspz2l4rW1sHK4SnOcz7LjOnwHcYUwdE2bhM
+Authorization: Bearer yourToken
 
-
-### 유저 정보 가져오기 (AccessToken 쿠키 필요)
+### 내 정보 가져오기 (AccessToken 필요)
 GET http://localhost:8000/users/me
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjczNTgyMjYsImV4cCI6MTcyNzYxNzQyNn0.4UmHmzMbQccp5UPHy77Ft28K46mt0YLCbV3ouhECvw0
-
+Authorization: Bearer yourToken
 
 ### 토큰 갱신 요청 (RefreshToken 필요)
 POST http://localhost:8000/auth/refresh
 Content-Type: application/json
 
 {
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MjY4OTQwMzIsImV4cCI6MTcyNzQ5ODgzMn0.sHud6IEP98cXeHqfTxsC1H2c8VGc3ITVnH_aQ31KK1A"
+  "refreshToken": "yourToken"
 }
 
-
-
-# GET all users
-GET http://localhost:8000/users
-
-###
-
-# GET a specific user by ID
-GET http://localhost:8000/users/6ba7b812-9dad-11d1-80b4-00c04fd430c8
-
-###
-
-# Create a new user
-POST http://localhost:8000/users
+### 유저 정보 수정하기 (유저 ID 필요)
+PATCH http://localhost:8000/users/유저ID
 Content-Type: application/json
+Authorization: Bearer yourToken
 
 {
-  "email": "example@naver.com",
-  "name": "John Doe"
-}
-
-###
-
-# Update a specific user by ID
-PATCH http://localhost:8000/users/1bb5ef34-71f8-4116-8c50-45b588dcc660
-Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjcxNDc0NTgsImV4cCI6MTcyNzQwNjY1OH0.zr6D2Bgr1VaulUGYG0-mQ5Dxq7aVC_doVBQ-ouNJfD4
-
-{
-  "name": "John Doe",
+  "name": "수정된 이름",
   "isAdmin": true
 }
 
-###
+### 유저 삭제하기 (유저 ID 필요)
+DELETE http://localhost:8000/users/유저ID
+Authorization: Bearer yourToken
 
-# Delete a specific user by ID
-DELETE http://localhost:8000/users/b61d8ee1-7bcf-424e-9c5f-c0689fba8e7c
-
-### Post APIs
-
-# GET all posts
+### 모든 포스트 가져오기
 GET http://localhost:8000/posts
 
-###
+### 특정 포스트 가져오기 (타이틀 필요)
+GET http://localhost:8000/posts/타이틀(slug:양자-컴퓨팅의-혁명적-발전)
 
-# GET a specific post by title (slug)
-GET http://localhost:8000/posts/양자-컴퓨팅의-혁명적-발전
-
-###
-
-# Create a new post
+### 포스트 생성하기
 POST http://localhost:8000/posts
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjczNTgyNjUsImV4cCI6MTcyNzYxNzQ2NX0.Sc09ONgK5c-Nm9pcyK1Aj2qioQzc1wAKlwYivryvrQw
+Authorization: Bearer yourToken
 
 {
   "title": "테스트 포스트 제목",
   "content": "이것은 테스트 포스트의 내용입니다.",
-  "userId": "1bb5ef34-71f8-4116-8c50-45b588dcc660",
-  "tags": ["tag1", "tag2"] 
+  "userId": "유저ID",
+  "tags": ["tag1", "tag2"]
 }
 
-###
-
-# Update a specific post by ID
-PATCH http://localhost:8000/posts/1
+### 포스트 수정하기 (포스트 ID 필요)
+PATCH http://localhost:8000/posts/포스트ID
 Content-Type: application/json
+Authorization: Bearer yourToken
 
 {
   "title": "수정된 포스트 제목"
 }
 
-###
+### 포스트 삭제하기 (포스트 ID 필요)
+DELETE http://localhost:8000/posts/포스트ID
+Authorization: Bearer yourToken
 
-# Delete a specific post by ID
-DELETE http://localhost:8000/posts/21
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxYmI1ZWYzNC03MWY4LTQxMTYtOGM1MC00NWI1ODhkY2M2NjAiLCJpYXQiOjE3MjczNTgyNjUsImV4cCI6MTcyNzYxNzQ2NX0.Sc09ONgK5c-Nm9pcyK1Aj2qioQzc1wAKlwYivryvrQw
-
-### Comment APIs
-
-# GET all comments
+### 모든 댓글 가져오기
 GET http://localhost:8000/comments
 
-###
+### 특정 포스트의 댓글 가져오기 (타이틀 필요)
+GET http://localhost:8000/comments/타이틀(slug:양자-컴퓨팅의-혁명적-발전)
 
-# GET comments of a specific post by title (slug)
-GET http://localhost:8000/comments/양자-컴퓨팅의-혁명적-발전
-
-###
-
-# Create a new comment
+### 댓글 생성하기
 POST http://localhost:8000/comments
 Content-Type: application/json
+Authorization: Bearer yourToken
 
 {
   "content": "이것은 댓글입니다.",
-  "userId": "6ba7b812-9dad-11d1-80b4-00c04fd430c8",
+  "userId": "유저ID",
   "postId": 1
 }
 
-###
-
-# Update a specific comment by ID
+### 댓글 수정하기 (댓글 ID 필요)
 PATCH http://localhost:8000/comments/1
 Content-Type: application/json
+Authorization: Bearer yourToken
 
 {
   "content": "수정된 댓글 내용입니다."
 }
 
-###
-
-# Delete a specific comment by ID
+### 댓글 삭제하기 (댓글 ID 필요)
 DELETE http://localhost:8000/comments/1
+Authorization: Bearer yourToken

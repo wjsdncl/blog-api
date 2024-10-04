@@ -7,14 +7,14 @@ import jwt from "jsonwebtoken";
 import cors from "cors";
 import { getChoseong } from "es-hangul";
 
-import { PrismaClient, Prisma } from "@prisma/client"; // Prisma Client를 가져옵니다.
-
 import { assert } from "superstruct"; // 데이터 검증을 위한 라이브러리
-import { CreateUser, UpdateUser, CreatePost, UpdatePost, CreateComment, UpdateComment } from "./structs.js"; // Superstruct 스키마
+import { CreateUser, UpdateUser, CreatePost, UpdatePost, CreateComment, UpdateComment } from "./lib/structs.js"; // Superstruct 스키마
 
 import crypto from "crypto"; // 랜덤 문자열 생성을 위해 crypto 모듈 사용
 
-const prisma = new PrismaClient(); // Prisma Client 인스턴스 생성
+import { prisma } from "./lib/prismaClient.js"; // PrismaClient 인스턴스
+
+import { asyncHandler } from "./middleware/errorHandler.js"; // 에러 핸들러 미들웨어
 
 const app = express();
 
@@ -31,81 +31,22 @@ const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET; // RefreshToken을 �
 /* ========================
 /
 /
-/       Error Handler
-/
-/
-======================== */
-
-// 에러 핸들러를 생성하는 함수
-function asyncHandler(handler) {
-  return async function (req, res) {
-    try {
-      await handler(req, res);
-    } catch (e) {
-      if (e.name === "StructError") {
-        // Superstruct 검증 오류
-        res.status(400).send({
-          message: `입력 데이터 오류: ${e.key} 필드가 올바르지 않습니다. ${e.message}`,
-        });
-      } else if (e instanceof Prisma.PrismaClientValidationError) {
-        // Prisma Client 검증 오류
-        res.status(400).send({
-          message: `입력 데이터 오류: ${e.message} 필드가 올바르지 않습니다.`,
-        });
-      } else if (e instanceof Prisma.PrismaClientKnownRequestError) {
-        // Prisma에서 발생하는 요청 오류 처리
-        switch (e.code) {
-          case "P2025": // 리소스를 찾을 수 없을 때
-            res.status(404).send({
-              message: "리소스를 찾을 수 없습니다. 요청한 데이터가 존재하지 않습니다.",
-            });
-            break;
-          case "P2002": // 고유 제약 조건 위반 시
-            res.status(409).send({
-              message: `중복된 데이터 오류: ${e.meta?.target || "알 수 없는 필드"}에 중복된 값이 있습니다.`,
-            });
-            break;
-          default: // 기타 Prisma에서 발생하는 요청 오류
-            res.status(400).send({
-              message: `알려진 오류: ${e.message}. 요청을 확인하고 다시 시도하십시오.`,
-            });
-        }
-      } else if (e instanceof jwt.JsonWebTokenError || e.name === "JsonWebTokenError") {
-        // JWT 토큰 관련 오류 처리
-        res.status(401).send({
-          message: "인증 오류: 유효하지 않거나 만료된 토큰입니다.",
-        });
-      } else {
-        // 기타 내부 서버 오류 처리
-        console.error("Unhandled Error:", e); // 추가적으로 콘솔에 상세 오류를 로깅
-        res.status(500).send({
-          message: `서버 오류: ${e.message}. 문제가 계속되면 관리자에게 문의하세요.`,
-        });
-      }
-    }
-  };
-}
-
-/* ========================
-/
-/
 /       Auth API
 /
 /
 ======================== */
 
 // JWT 토큰 생성 함수
-function generateTokens(user) {
-  const accessToken = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "3d" }); // AccessToken 3일 만료
-  const refreshToken = jwt.sign({ userId: user.id }, JWT_REFRESH_SECRET, { expiresIn: "7d" }); // RefreshToken 7일 만료
+function generateTokens(userId) {
+  const accessToken = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "3d" }); // AccessToken 3일 만료
+  const refreshToken = jwt.sign({ userId }, JWT_REFRESH_SECRET, { expiresIn: "7d" }); // RefreshToken 7일 만료
   return { accessToken, refreshToken };
 }
 
 // 유저 인증 미들웨어
 function authenticateToken(req, res, next) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-  if (!token) return res.status(401).send({ message: "접근이 거부되었습니다. 토큰이 없습니다." });
+  const token = req.headers?.authorization?.split(" ")[1];
+  if (!token) return res.status(401).send({ message: "토큰이 없습니다." });
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) return res.status(403).send({ message: "토큰이 유효하지 않거나 만료되었습니다." });
@@ -122,7 +63,7 @@ app.post(
     assert({ email, name }, CreateUser);
 
     // 비밀번호 암호화
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 6);
 
     // 유저 생성
     const newUser = await prisma.user.create({
@@ -149,7 +90,7 @@ app.post(
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) return res.status(401).send({ message: "비밀번호가 일치하지 않습니다." });
 
-    const { accessToken, refreshToken } = generateTokens(user);
+    const { accessToken, refreshToken } = generateTokens(user.id);
     res.send({ accessToken, refreshToken, user });
   })
 );
@@ -303,22 +244,6 @@ app.get(
         orderBy = { createdAt: "desc" };
     }
 
-    // 전체 포스트 개수 계산
-    const totalPosts = await prisma.post.count();
-
-    // 카테고리 카운트 계산
-    const allCategoryCounts = await prisma.post.groupBy({
-      by: ["category"],
-      _count: { category: true },
-    });
-
-    const categoryCounts = allCategoryCounts.reduce((acc, curr) => {
-      if (curr.category && curr.category.trim() !== "") {
-        acc[curr.category] = curr._count.category;
-      }
-      return acc;
-    }, {});
-
     // 검색 조건 설정
     const where = {
       ...(category && { category }),
@@ -331,14 +256,33 @@ app.get(
       }),
     };
 
-    // 검색된 포스트 가져오기
-    const posts = await prisma.post.findMany({
-      where,
-      orderBy,
-      skip: parseInt(offset),
-      take: parseInt(limit),
-      include: { _count: { select: { comments: true } } },
-    });
+    // 비동기 작업들을 병렬로 실행
+    const [totalPosts, allCategoryCounts, posts] = await Promise.all([
+      // 전체 포스트 개수 계산
+      prisma.post.count(),
+
+      // 카테고리 카운트 계산
+      prisma.post.groupBy({
+        by: ["category"],
+        _count: { category: true },
+      }),
+
+      // 포스트 가져오기
+      prisma.post.findMany({
+        where,
+        orderBy,
+        skip: parseInt(offset),
+        take: parseInt(limit),
+        include: { _count: { select: { comments: true } } },
+      }),
+    ]);
+
+    const categoryCounts = allCategoryCounts.reduce((acc, curr) => {
+      if (curr.category && curr.category.trim() !== "") {
+        acc[curr.category] = curr._count.category;
+      }
+      return acc;
+    }, {});
 
     res.send({
       totalPosts,
@@ -368,14 +312,14 @@ app.post(
   authenticateToken, // JWT 인증
   asyncHandler(async (req, res) => {
     const { title, content, userId, coverImg, category, tags = [] } = req.body;
-    assert({ title, content, userId }, CreatePost);
+    assert(req.body, CreatePost);
 
     // 고유한 슬러그 생성
     let slugBase = title
       .toLowerCase()
       .trim()
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9가-힣ㄱ-ㅎ-]/g, "");
+      .replace(/\s+/g, "-") // 공백을 하이픈으로
+      .replace(/[^a-z0-9가-힣ㄱ-ㅎ-]/g, ""); // 특수문자 제거
 
     let slug = `${slugBase}`;
     while (await prisma.post.findUnique({ where: { slug } })) {
@@ -411,6 +355,19 @@ app.patch(
   asyncHandler(async (req, res) => {
     const { title } = req.body;
 
+    assert(req.body, UpdatePost); // 유효성 검사
+
+    let slugBase = title
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9가-힣ㄱ-ㅎ-]/g, "");
+
+    let slug = `${slugBase}`;
+    while (await prisma.post.findFirst({ where: { slug } })) {
+      slug = `${slugBase}-${crypto.randomBytes(2).toString("hex").slice(0, 3)}`;
+    }
+
     // 수정된 제목이 있을 경우 choseongTitle 업데이트
     const choseongTitle = title ? getChoseong(title).replace(/\s+/g, "") : undefined;
 
@@ -421,6 +378,7 @@ app.patch(
       data: {
         ...req.body,
         ...(choseongTitle && { choseongTitle }), // 초성 저장
+        ...(slug && { slug }), // 슬러그 저장
       },
     });
 
