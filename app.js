@@ -414,16 +414,16 @@ app.delete(
 app.get(
   "/comments",
   asyncHandler(async (req, res) => {
-    const { offset = 0, limit = 10 } = req.query; // 페이지네이션을 위한 쿼리 파라미터
+    const { offset = 0, limit = 10 } = req.query;
 
     const comments = await prisma.comment.findMany({
       skip: parseInt(offset),
       take: parseInt(limit),
-      orderBy: { createdAt: "desc" }, // 최신 순으로 정렬
+      orderBy: { createdAt: "desc" },
       include: {
-        post: { select: { title: true } }, // 포스트 제목 포함
-        user: { select: { email: true, name: true } }, // 댓글 작성자 정보 포함
-        replies: { include: { user: { select: { email: true, name: true } } } }, // 대댓글 작성자 정보 포함
+        post: { select: { title: true } },
+        user: { select: { email: true, name: true } },
+        replies: { include: { user: { select: { email: true, name: true } } } },
       },
     });
 
@@ -435,10 +435,11 @@ app.get(
 app.get(
   "/comments/:title",
   asyncHandler(async (req, res) => {
+    const { offset = 0, limit = 10 } = req.query;
     const { title } = req.params;
 
     const post = await prisma.post.findUniqueOrThrow({
-      where: { slug: title }, // 포스트의 슬러그를 이용하여 조회
+      where: { slug: title },
       select: { id: true },
     });
 
@@ -446,10 +447,13 @@ app.get(
     const totalComments = await prisma.comment.count({ where: { postId: post.id } });
 
     const comments = await prisma.comment.findMany({
+      skip: parseInt(offset),
+      take: parseInt(limit),
+      orderBy: { createdAt: "desc" },
       where: { postId: post.id },
       include: {
-        user: { select: { email: true, name: true } }, // 댓글 작성자 정보 포함
-        replies: { include: { user: { select: { email: true, name: true } } } }, // 대댓글 작성자 정보 포함
+        user: { select: { email: true, name: true } },
+        replies: { include: { user: { select: { email: true, name: true } } } },
       },
     });
 
