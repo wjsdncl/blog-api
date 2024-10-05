@@ -95,6 +95,18 @@ Authorization: Bearer yourToken
   "postId": 1
 }
 
+### 대댓글 생성하기
+POST http://localhost:8000/comments
+Content-Type: application/json
+Authorization: Bearer yourToken
+
+{
+  "content": "이것은 대댓글입니다.",
+  "userId": "유저ID",
+  "postId": 1,
+  "parentCommentId": 1
+}
+
 ### 댓글 수정하기 (댓글 ID 필요)
 PATCH http://localhost:8000/comments/1
 Content-Type: application/json

@@ -300,6 +300,7 @@ app.get(
 
     const post = await prisma.post.findUniqueOrThrow({
       where: { slug: title }, // 슬러그를 이용한 조회
+      include: { _count: { select: { comments: true } } },
     });
 
     res.send(post);
