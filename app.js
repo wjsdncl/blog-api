@@ -543,15 +543,23 @@ app.delete(
       return res.status(404).send({ message: "댓글을 찾을 수 없습니다." });
     }
 
-    // 댓글이 대댓글인 경우 부모 댓글과 연결된 하위 구조를 유지하기 위해 내용만 지움
-    await prisma.comment.update({
-      where: { id: parseInt(id) },
-      data: {
-        content: "[삭제된 댓글입니다]", // 댓글 내용 삭제
-        likes: 0, // 좋아요 수 초기화
-        userId: null, // 유저 정보 삭제
-      },
-    });
+    // 댓글에 답글이 있는지 확인
+    if (comment.replies.length > 0) {
+      // 답글이 있을 경우, 내용만 지우고 구조 유지
+      await prisma.comment.update({
+        where: { id: parseInt(id) },
+        data: {
+          content: "[삭제된 댓글입니다]", // 댓글 내용 삭제
+          likes: 0, // 좋아요 수 초기화
+          userId: null, // 유저 정보 삭제
+        },
+      });
+    } else {
+      // 답글이 없을 경우, 댓글을 완전히 삭제
+      await prisma.comment.delete({
+        where: { id: parseInt(id) },
+      });
+    }
 
     res.status(204).send();
   })
