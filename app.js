@@ -444,16 +444,28 @@ app.get(
     });
 
     // 특정 포스트의 총 댓글 수를 가져옵니다.
-    const totalComments = await prisma.comment.count({ where: { postId: post.id } });
+    const totalComments = await prisma.comment.count({
+      where: { postId: post.id },
+    });
 
+    // 부모 댓글만 가져옵니다.
     const comments = await prisma.comment.findMany({
       skip: parseInt(offset),
       take: parseInt(limit),
       orderBy: { createdAt: "desc" },
-      where: { postId: post.id },
+      where: { postId: post.id, parentCommentId: null }, // 대댓글 제외
       include: {
         user: { select: { email: true, name: true } },
-        replies: { include: { user: { select: { email: true, name: true } } } },
+        replies: {
+          include: {
+            user: { select: { email: true, name: true } },
+            replies: {
+              include: {
+                user: { select: { email: true, name: true } },
+              },
+            },
+          },
+        },
       },
     });
 
