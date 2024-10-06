@@ -524,15 +524,33 @@ app.patch(
   })
 );
 
-// DELETE /comments/:id -> 특정 댓글을 삭제
+// DELETE /comments/:id -> 댓글 삭제
 app.delete(
   "/comments/:id",
   authenticateToken, // JWT 인증
   asyncHandler(async (req, res) => {
-    const id = Number(req.params.id);
+    const { id } = req.params;
 
-    await prisma.comment.delete({
-      where: { id },
+    // 삭제할 댓글이 존재하는지 확인
+    const comment = await prisma.comment.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        replies: true,
+      },
+    });
+
+    if (!comment) {
+      return res.status(404).send({ message: "댓글을 찾을 수 없습니다." });
+    }
+
+    // 댓글이 대댓글인 경우 부모 댓글과 연결된 하위 구조를 유지하기 위해 내용만 지움
+    await prisma.comment.update({
+      where: { id: parseInt(id) },
+      data: {
+        content: "[삭제된 댓글입니다]", // 댓글 내용 삭제
+        likes: 0, // 좋아요 수 초기화
+        userId: null, // 유저 정보 삭제
+      },
     });
 
     res.status(204).send();
