@@ -448,25 +448,31 @@ app.get(
       where: { postId: post.id },
     });
 
-    // 부모 댓글만 가져옵니다.
+    // 재귀적으로 모든 답글을 포함하는 함수를 정의합니다.
+    const includeReplies = (depth = 10) => ({
+      include:
+        depth > 0
+          ? {
+              user: { select: { email: true, name: true } },
+              replies: {
+                include: {
+                  user: { select: { email: true, name: true } },
+                  replies: includeReplies(depth - 1),
+                },
+              },
+            }
+          : {
+              user: { select: { email: true, name: true } },
+            },
+    });
+
+    // 부모 댓글과 모든 대댓글을 가져옵니다.
     const comments = await prisma.comment.findMany({
       skip: parseInt(offset),
       take: parseInt(limit),
       orderBy: { createdAt: "desc" },
-      where: { postId: post.id, parentCommentId: null }, // 대댓글 제외
-      include: {
-        user: { select: { email: true, name: true } },
-        replies: {
-          include: {
-            user: { select: { email: true, name: true } },
-            replies: {
-              include: {
-                user: { select: { email: true, name: true } },
-              },
-            },
-          },
-        },
-      },
+      where: { postId: post.id, parentCommentId: null }, // 최상위 댓글만
+      ...includeReplies(),
     });
 
     res.send({ totalComments, comments });
