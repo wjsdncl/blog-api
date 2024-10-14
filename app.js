@@ -519,6 +519,10 @@ app.get(
       where: { postId: post.id },
     });
 
+    const parentComments = await prisma.comment.count({
+      where: { postId: post.id, parentCommentId: null },
+    });
+
     // 재귀적으로 모든 답글을 포함하는 함수를 정의합니다.
     const includeReplies = (depth = 10) => ({
       include:
@@ -546,7 +550,7 @@ app.get(
       ...includeReplies(),
     });
 
-    res.send({ totalComments, comments });
+    res.send({ totalComments, parentComments, comments });
   })
 );
 
