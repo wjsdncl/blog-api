@@ -8,13 +8,23 @@ import cors from "cors";
 import { getChoseong } from "es-hangul";
 
 import { assert } from "superstruct"; // 데이터 검증을 위한 라이브러리
-import { CreateUser, UpdateUser, CreatePost, UpdatePost, CreateComment, UpdateComment } from "./lib/structs.js"; // Superstruct 스키마
+import {
+  CreateUser,
+  UpdateUser,
+  CreatePost,
+  UpdatePost,
+  CreateComment,
+  UpdateComment,
+  LikePost,
+  LikeComment,
+} from "./lib/structs.js"; // Superstruct 스키마
 
 import crypto from "crypto"; // 랜덤 문자열 생성을 위해 crypto 모듈 사용
 
 import { prisma } from "./lib/prismaClient.js"; // PrismaClient 인스턴스
 
 import { asyncHandler } from "./middleware/errorHandler.js"; // 에러 핸들러 미들웨어
+import { title } from "process";
 
 const app = express();
 
@@ -349,6 +359,62 @@ app.post(
   })
 );
 
+app.post(
+  "/posts/:id/like",
+  authenticateToken, // JWT 인증
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const postId = parseInt(id);
+
+    assert({ userId, postId }, LikePost); // 유효성 검사
+
+    // 유저가 해당 포스트에 좋아요를 눌렀는지 확인
+    const existingLike = await prisma.like.findUnique({
+      where: {
+        userId_postId: { userId, postId },
+      },
+    });
+
+    const currentPost = await prisma.post.findUnique({
+      where: { id: postId },
+      select: { updatedAt: true },
+    });
+
+    let isLike;
+
+    const updateData = existingLike
+      ? { likes: { decrement: 1 }, updatedAt: currentPost.updatedAt } // 좋아요 취소
+      : { likes: { increment: 1 }, updatedAt: currentPost.updatedAt }; // 좋아요 추가
+
+    // 좋아요를 토글 처리
+    if (existingLike) {
+      await prisma.like.delete({
+        where: {
+          userId_postId: { userId, postId },
+        },
+      });
+      isLike = false;
+    } else {
+      await prisma.like.create({
+        data: {
+          userId,
+          postId,
+        },
+      });
+      isLike = true;
+    }
+
+    const updatedPost = await prisma.post.update({
+      where: { id: postId },
+      data: updateData,
+      select: { id: true, title: true, likes: true },
+    });
+
+    res.send({ post: updatedPost, isLike });
+  })
+);
+
 // PATCH /posts/:id -> 특정 포스트 정보를 수정
 app.patch(
   "/posts/:id",
@@ -503,6 +569,61 @@ app.post(
     });
 
     res.status(201).send(newComment);
+  })
+);
+
+app.post(
+  "/comments/:id/like",
+  authenticateToken, // JWT 인증
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const commentId = parseInt(id);
+
+    assert({ userId, commentId }, LikeComment); // 유효성 검사
+
+    // 유저가 해당 댓글에 좋아요를 눌렀는지 확인
+    const existingLike = await prisma.commentLike.findUnique({
+      where: {
+        userId_commentId: { userId, commentId },
+      },
+    });
+
+    let isLike; // 좋아요 상태를 나타낼 boolean 변수
+
+    const updateData = existingLike
+      ? { likes: { decrement: 1 } } // 좋아요 취소
+      : { likes: { increment: 1 } }; // 좋아요 추가
+
+    // 좋아요를 토글 처리
+    if (existingLike) {
+      await prisma.commentLike.delete({
+        where: {
+          userId_commentId: { userId, commentId },
+        },
+      });
+      isLike = false; // 좋아요 취소
+    } else {
+      await prisma.commentLike.create({
+        data: {
+          userId,
+          commentId,
+        },
+      });
+      isLike = true; // 좋아요 추가
+    }
+
+    // 업데이트 후 댓글 데이터에서 필요한 필드만 선택해서 응답
+    const updatedComment = await prisma.comment.update({
+      where: { id: commentId },
+      data: updateData,
+      select: { id: true, content: true, likes: true }, // 필요한 필드만 선택
+    });
+
+    res.send({
+      comment: updatedComment, // 필요한 필드만 전송
+      isLike, // 좋아요 상태 전송
+    });
   })
 );
 

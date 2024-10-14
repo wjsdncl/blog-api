@@ -24,6 +24,8 @@ model User {
 
   posts         Post[]
   comments      Comment[] 
+  Like Like[]
+  CommentLike CommentLike[]
 }
 
 model Post {
@@ -43,7 +45,19 @@ model Post {
   userId    String
 
   comments  Comment[] 
+
+  Like Like[]
 }
+
+model Like {
+  userId   String
+  postId   Int
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post     Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+}
+
 
 model Comment {
   id              Int       @id @default(autoincrement())
@@ -64,5 +78,14 @@ model Comment {
   replies         Comment[] @relation("CommentReplies")
 
   @@index([parentCommentId]) 
+  CommentLike CommentLike[]
 }
 
+model CommentLike {
+  userId     String
+  commentId  Int
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment    Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, commentId])
+}

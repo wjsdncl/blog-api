@@ -19,24 +19,24 @@ Content-Type: application/json
 
 ### 유저 목록 가져오기 (AccessToken 필요)
 GET http://localhost:8000/users
-Authorization: Bearer yourToken
+Authorization: Bearer yourAccessToken
 
 ### 내 정보 가져오기 (AccessToken 필요)
 GET http://localhost:8000/users/me
-Authorization: Bearer yourToken
+Authorization: Bearer yourAccessToken
 
 ### 토큰 갱신 요청 (RefreshToken 필요)
 POST http://localhost:8000/auth/refresh
 Content-Type: application/json
 
 {
-  "refreshToken": "yourToken"
+  "refreshToken": "yourRefreshToken"
 }
 
 ### 유저 정보 수정하기 (유저 ID 필요)
 PATCH http://localhost:8000/users/유저ID
 Content-Type: application/json
-Authorization: Bearer yourToken
+Authorization: Bearer yourAccessToken
 
 {
   "name": "수정된 이름",
@@ -45,18 +45,18 @@ Authorization: Bearer yourToken
 
 ### 유저 삭제하기 (유저 ID 필요)
 DELETE http://localhost:8000/users/유저ID
-Authorization: Bearer yourToken
+Authorization: Bearer yourAccessToken
 
 ### 모든 포스트 가져오기
 GET http://localhost:8000/posts
 
 ### 특정 포스트 가져오기 (타이틀 필요)
-GET http://localhost:8000/posts/타이틀(slug:양자-컴퓨팅의-혁명적-발전)
+GET http://localhost:8000/posts/타이틀
 
 ### 포스트 생성하기
 POST http://localhost:8000/posts
 Content-Type: application/json
-Authorization: Bearer yourToken
+Authorization: Bearer yourAccessToken
 
 {
   "title": "테스트 포스트 제목",
@@ -68,7 +68,7 @@ Authorization: Bearer yourToken
 ### 포스트 수정하기 (포스트 ID 필요)
 PATCH http://localhost:8000/posts/포스트ID
 Content-Type: application/json
-Authorization: Bearer yourToken
+Authorization: Bearer yourAccessToken
 
 {
   "title": "수정된 포스트 제목"
@@ -76,46 +76,54 @@ Authorization: Bearer yourToken
 
 ### 포스트 삭제하기 (포스트 ID 필요)
 DELETE http://localhost:8000/posts/포스트ID
-Authorization: Bearer yourToken
+Authorization: Bearer yourAccessToken
+
+### 게시글 좋아요/취소 토글 (게시글 ID 필요)
+POST http://localhost:8000/posts/포스트ID/like
+Authorization: Bearer yourAccessToken
 
 ### 모든 댓글 가져오기
 GET http://localhost:8000/comments
 
 ### 특정 포스트의 댓글 가져오기 (타이틀 필요)
-GET http://localhost:8000/comments/타이틀(slug:양자-컴퓨팅의-혁명적-발전)
+GET http://localhost:8000/comments/인공지능의-미래
 
 ### 댓글 생성하기
 POST http://localhost:8000/comments
 Content-Type: application/json
-Authorization: Bearer yourToken
+Authorization: Bearer yourAccessToken
 
 {
   "content": "이것은 댓글입니다.",
   "userId": "유저ID",
-  "postId": 1
+  "postId": "포스트ID"
 }
 
 ### 대댓글 생성하기
 POST http://localhost:8000/comments
 Content-Type: application/json
-Authorization: Bearer yourToken
+Authorization: Bearer yourAccessToken
 
 {
   "content": "이것은 대댓글입니다.",
   "userId": "유저ID",
-  "postId": 1,
-  "parentCommentId": 1
+  "postId": "포스트ID",
+  "parentCommentId": "부모 댓글 ID"
 }
 
 ### 댓글 수정하기 (댓글 ID 필요)
-PATCH http://localhost:8000/comments/1
+PATCH http://localhost:8000/comments/댓글ID
 Content-Type: application/json
-Authorization: Bearer yourToken
+Authorization: Bearer yourAccessToken
 
 {
   "content": "수정된 댓글 내용입니다."
 }
 
 ### 댓글 삭제하기 (댓글 ID 필요)
-DELETE http://localhost:8000/comments/1
-Authorization: Bearer yourToken
+DELETE http://localhost:8000/comments/댓글ID
+Authorization: Bearer yourAccessToken
+
+### 댓글 좋아요/취소 토글 (댓글 ID 필요)
+POST http://localhost:8000/comments/댓글ID/like
+Authorization: Bearer yourAccessToken
