@@ -72,6 +72,10 @@ app.post(
     const { email, name, password } = req.body;
     assert({ email, name }, CreateUser);
 
+    // 이메일 중복 확인
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) return res.status(409).send({ message: "이미 가입된 이메일입니다." });
+
     // 비밀번호 암호화
     const hashedPassword = await bcrypt.hash(password, 6);
 
@@ -359,6 +363,7 @@ app.post(
   })
 );
 
+// POST /posts/:id/like -> 특정 포스트에 좋아요를 누름
 app.post(
   "/posts/:id/like",
   authenticateToken, // JWT 인증
@@ -548,7 +553,7 @@ app.get(
 // POST /comments -> 댓글 또는 대댓글 작성
 app.post(
   "/comments",
-  authenticateToken, // JWT 인증
+  authenticateToken,
   asyncHandler(async (req, res) => {
     assert(req.body, CreateComment); // 유효성 검사
 
@@ -557,14 +562,9 @@ app.post(
     const newComment = await prisma.comment.create({
       data: {
         content,
-        user: userId ? { connect: { id: userId } } : undefined, // userId가 있는 경우 유저 연결
-        post: { connect: { id: postId } }, // postId를 이용하여 포스트 연결
-        parentComment: parentCommentId ? { connect: { id: parentCommentId } } : undefined, // 대댓글의 경우 부모 댓글 연결
-      },
-      include: {
-        user: { select: { email: true, name: true } },
-        post: { select: { title: true } },
-        parentComment: { select: { id: true, content: true } },
+        user: userId ? { connect: { id: userId } } : undefined,
+        post: { connect: { id: postId } },
+        parentComment: parentCommentId ? { connect: { id: parentCommentId } } : undefined, // 대댓글인 경우
       },
     });
 
@@ -572,6 +572,7 @@ app.post(
   })
 );
 
+// POST /comments/:id/like -> 특정 댓글에 좋아요를 누름
 app.post(
   "/comments/:id/like",
   authenticateToken, // JWT 인증

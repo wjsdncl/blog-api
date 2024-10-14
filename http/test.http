@@ -91,24 +91,24 @@ GET http://localhost:8000/comments/인공지능의-미래
 ### 댓글 생성하기
 POST http://localhost:8000/comments
 Content-Type: application/json
-Authorization: Bearer yourAccessToken
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3NTg1MTIwNC0yNDFjLTRlZWItODFkMS0wYTVmNjMzOGQwOTkiLCJpYXQiOjE3Mjg4ODgzMDIsImV4cCI6MTcyOTE0NzUwMn0.-T7l4MwOwFICMt57aWZPZo8lP8tCtBKydhAfMaiXf0E
 
 {
   "content": "이것은 댓글입니다.",
-  "userId": "유저ID",
-  "postId": "포스트ID"
+  "userId": "75851204-241c-4eeb-81d1-0a5f6338d099",
+  "postId": 1
 }
 
 ### 대댓글 생성하기
 POST http://localhost:8000/comments
 Content-Type: application/json
-Authorization: Bearer yourAccessToken
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3NTg1MTIwNC0yNDFjLTRlZWItODFkMS0wYTVmNjMzOGQwOTkiLCJpYXQiOjE3Mjg4ODgzMDIsImV4cCI6MTcyOTE0NzUwMn0.-T7l4MwOwFICMt57aWZPZo8lP8tCtBKydhAfMaiXf0E
 
 {
   "content": "이것은 대댓글입니다.",
-  "userId": "유저ID",
-  "postId": "포스트ID",
-  "parentCommentId": "부모 댓글 ID"
+  "userId": "75851204-241c-4eeb-81d1-0a5f6338d099",
+  "postId": 1,
+  "parentCommentId": 20
 }
 
 ### 댓글 수정하기 (댓글 ID 필요)
@@ -121,8 +121,8 @@ Authorization: Bearer yourAccessToken
 }
 
 ### 댓글 삭제하기 (댓글 ID 필요)
-DELETE http://localhost:8000/comments/댓글ID
-Authorization: Bearer yourAccessToken
+DELETE http://localhost:8000/comments/8
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3NTg1MTIwNC0yNDFjLTRlZWItODFkMS0wYTVmNjMzOGQwOTkiLCJpYXQiOjE3Mjg4ODgzMDIsImV4cCI6MTcyOTE0NzUwMn0.-T7l4MwOwFICMt57aWZPZo8lP8tCtBKydhAfMaiXf0E
 
 ### 댓글 좋아요/취소 토글 (댓글 ID 필요)
 POST http://localhost:8000/comments/댓글ID/like
