@@ -51,7 +51,7 @@ Authorization: Bearer yourAccessToken
 GET http://localhost:8000/posts
 
 ### 특정 포스트 가져오기 (타이틀 필요)
-GET http://localhost:8000/posts/타이틀
+GET http://localhost:8000/posts/인공지능의-미래
 
 ### 포스트 생성하기
 POST http://localhost:8000/posts

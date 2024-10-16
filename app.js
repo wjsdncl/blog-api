@@ -311,17 +311,18 @@ app.get(
   "/posts/:title",
   asyncHandler(async (req, res) => {
     const { title } = req.params;
-    const userId = req.user?.userId;
+    const userId = req.user?.userId; // 로그인된 사용자가 있는 경우 userId 가져옴
 
     const post = await prisma.post.findUniqueOrThrow({
-      where: { slug: title },
+      where: { slug: title }, // 슬러그를 이용한 조회
       include: {
         user: { select: { id: true, email: true, name: true } },
-        _count: { select: { comments: true, Like: true } },
+        _count: { select: { comments: true, Like: true } }, // 댓글 수 및 좋아요 수 포함
       },
     });
 
-    let isLiked = false;
+    // 기본값으로 isLiked를 false로 설정
+    post.isLiked = false;
 
     // 로그인된 유저일 경우에만 좋아요 여부를 검사
     if (userId) {
@@ -330,13 +331,10 @@ app.get(
           userId_postId: { userId, postId: post.id },
         },
       });
-      isLiked = !!existingLike;
+      post.isLiked = !!existingLike;
     }
 
-    res.send({
-      post,
-      isLiked,
-    });
+    res.send(post);
   })
 );
 
