@@ -24,7 +24,6 @@ import crypto from "crypto"; // 랜덤 문자열 생성을 위해 crypto 모듈 
 import { prisma } from "./lib/prismaClient.js"; // PrismaClient 인스턴스
 
 import { asyncHandler } from "./middleware/errorHandler.js"; // 에러 핸들러 미들웨어
-import { title } from "process";
 
 const app = express();
 
@@ -54,13 +53,27 @@ function generateTokens(userId) {
 }
 
 // 유저 인증 미들웨어
-function authenticateToken(req, res, next) {
+function requiredAuthenticate(req, res, next) {
   const token = req.headers?.authorization?.split(" ")[1];
-  if (!token) return res.status(401).send({ message: "토큰이 없습니다." });
+  if (!token) return res.status(401).send({ message: "로그인이 필요합니다." });
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) return res.status(403).send({ message: "토큰이 유효하지 않거나 만료되었습니다." });
     req.user = decoded;
+    next();
+  });
+}
+
+// 로그인 선택 미들웨어
+function optionalAuthenticate(req, res, next) {
+  const token = req.headers?.authorization?.split(" ")[1];
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    req.user = err ? null : decoded;
     next();
   });
 }
@@ -137,7 +150,7 @@ app.post(
 // GET /users -> 모든 유저 정보를 가져옴
 app.get(
   "/users",
-  authenticateToken, // JWT 인증
+  requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     const { offset = 0, limit = 10 } = req.query; // 페이지네이션을 위한 쿼리 파라미터
 
@@ -163,7 +176,7 @@ app.get(
 // GET /users/me -> accessToken을 사용하여 현재 유저 정보를 가져옴
 app.get(
   "/users/me",
-  authenticateToken,
+  requiredAuthenticate,
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
@@ -204,7 +217,7 @@ app.get(
 // PATCH /users/:id -> 특정 유저 정보를 수정
 app.patch(
   "/users/:id",
-  authenticateToken, // JWT 인증
+  requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     assert({ email: req.body.email, name: req.body.name }, UpdateUser); // 유효성 검사
 
@@ -222,7 +235,7 @@ app.patch(
 // DELETE /users/:id -> 특정 유저 정보를 삭제
 app.delete(
   "/users/:id",
-  authenticateToken, // JWT 인증
+  requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
@@ -309,6 +322,7 @@ app.get(
 // GET /posts/:title -> 특정 포스트 정보를 가져옴
 app.get(
   "/posts/:title",
+  optionalAuthenticate, // JWT 인증 (선택적)
   asyncHandler(async (req, res) => {
     const { title } = req.params;
     const userId = req.user?.userId; // 로그인된 사용자가 있는 경우 userId 가져옴
@@ -341,7 +355,7 @@ app.get(
 // POST /posts -> 포스트 정보를 생성
 app.post(
   "/posts",
-  authenticateToken, // JWT 인증
+  requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     const { title, content, userId, coverImg, category, tags = [] } = req.body;
     assert(req.body, CreatePost);
@@ -383,7 +397,7 @@ app.post(
 // POST /posts/:id/like -> 특정 포스트에 좋아요를 누름
 app.post(
   "/posts/:id/like",
-  authenticateToken, // JWT 인증
+  requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
@@ -440,7 +454,7 @@ app.post(
 // PATCH /posts/:id -> 특정 포스트 정보를 수정
 app.patch(
   "/posts/:id",
-  authenticateToken, // JWT 인증
+  requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     const { title } = req.body;
 
@@ -478,7 +492,7 @@ app.patch(
 // DELETE /posts/:id -> 특정 포스트 정보를 삭제
 app.delete(
   "/posts/:id",
-  authenticateToken, // JWT 인증
+  requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
 
@@ -522,6 +536,7 @@ app.get(
 // GET /comments/:title -> 특정 포스트의 댓글 정보를 가져옴
 app.get(
   "/comments/:title",
+  optionalAuthenticate, // JWT 인증 (선택적)
   asyncHandler(async (req, res) => {
     const { offset = 0, limit = 10 } = req.query;
     const { title } = req.params;
@@ -599,7 +614,7 @@ app.get(
 // POST /comments -> 댓글 또는 대댓글 작성
 app.post(
   "/comments",
-  authenticateToken,
+  requiredAuthenticate,
   asyncHandler(async (req, res) => {
     assert(req.body, CreateComment); // 유효성 검사
 
@@ -621,7 +636,7 @@ app.post(
 // POST /comments/:id/like -> 특정 댓글에 좋아요를 누름
 app.post(
   "/comments/:id/like",
-  authenticateToken, // JWT 인증
+  requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
@@ -677,7 +692,7 @@ app.post(
 // PATCH /comments/:id -> 특정 댓글을 수정
 app.patch(
   "/comments/:id",
-  authenticateToken, // JWT 인증
+  requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     assert(req.body, UpdateComment); // 유효성 검사
 
@@ -695,7 +710,7 @@ app.patch(
 // DELETE /comments/:id -> 댓글 삭제
 app.delete(
   "/comments/:id",
-  authenticateToken, // JWT 인증
+  requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
