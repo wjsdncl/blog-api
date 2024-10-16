@@ -311,13 +311,32 @@ app.get(
   "/posts/:title",
   asyncHandler(async (req, res) => {
     const { title } = req.params;
+    const userId = req.user?.userId;
 
     const post = await prisma.post.findUniqueOrThrow({
-      where: { slug: title }, // 슬러그를 이용한 조회
-      include: { _count: { select: { comments: true } } },
+      where: { slug: title },
+      include: {
+        user: { select: { id: true, email: true, name: true } },
+        _count: { select: { comments: true, Like: true } },
+      },
     });
 
-    res.send(post);
+    let isLiked = false;
+
+    // 로그인된 유저일 경우에만 좋아요 여부를 검사
+    if (userId) {
+      const existingLike = await prisma.like.findUnique({
+        where: {
+          userId_postId: { userId, postId: post.id },
+        },
+      });
+      isLiked = !!existingLike;
+    }
+
+    res.send({
+      post,
+      isLiked,
+    });
   })
 );
 
@@ -508,13 +527,13 @@ app.get(
   asyncHandler(async (req, res) => {
     const { offset = 0, limit = 10 } = req.query;
     const { title } = req.params;
+    const userId = req.user?.userId;
 
     const post = await prisma.post.findUniqueOrThrow({
       where: { slug: title },
       select: { id: true },
     });
 
-    // 특정 포스트의 총 댓글 수를 가져옵니다.
     const totalComments = await prisma.comment.count({
       where: { postId: post.id },
     });
@@ -523,7 +542,6 @@ app.get(
       where: { postId: post.id, parentCommentId: null },
     });
 
-    // 재귀적으로 모든 답글을 포함하는 함수를 정의합니다.
     const includeReplies = (depth = 10) => ({
       include:
         depth > 0
@@ -533,24 +551,50 @@ app.get(
                 include: {
                   user: { select: { email: true, name: true } },
                   replies: includeReplies(depth - 1),
+                  _count: { select: { CommentLike: true } },
                 },
               },
+              _count: { select: { CommentLike: true } },
             }
           : {
               user: { select: { email: true, name: true } },
+              _count: { select: { CommentLike: true } },
             },
     });
 
-    // 부모 댓글과 모든 대댓글을 가져옵니다.
     const comments = await prisma.comment.findMany({
       skip: parseInt(offset),
       take: parseInt(limit),
       orderBy: { createdAt: "desc" },
-      where: { postId: post.id, parentCommentId: null }, // 최상위 댓글만
+      where: { postId: post.id, parentCommentId: null },
       ...includeReplies(),
     });
 
-    res.send({ totalComments, parentComments, comments });
+    const checkLikes = async (comment) => {
+      let isLiked = false;
+
+      // 로그인된 유저일 경우에만 좋아요 여부를 검사
+      if (userId) {
+        const existingLike = await prisma.commentLike.findUnique({
+          where: {
+            userId_commentId: { userId, commentId: comment.id },
+          },
+        });
+        isLiked = !!existingLike;
+      }
+
+      const repliesWithLikes = comment.replies ? await Promise.all(comment.replies.map(checkLikes)) : [];
+
+      return {
+        ...comment,
+        isLiked,
+        replies: repliesWithLikes,
+      };
+    };
+
+    const commentsWithLikes = await Promise.all(comments.map(checkLikes));
+
+    res.send({ totalComments, parentComments, comments: commentsWithLikes });
   })
 );
 
