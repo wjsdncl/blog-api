@@ -7,6 +7,9 @@ import jwt from "jsonwebtoken";
 import cors from "cors";
 import { getChoseong } from "es-hangul";
 
+import multer from "multer";
+import path from "path";
+
 import { assert } from "superstruct"; // 데이터 검증을 위한 라이브러리
 import {
   CreateUser,
@@ -325,17 +328,16 @@ app.get(
   optionalAuthenticate, // JWT 인증 (선택적)
   asyncHandler(async (req, res) => {
     const { title } = req.params;
-    const userId = req.user?.userId; // 로그인된 사용자가 있는 경우 userId 가져옴
+    const userId = req.user?.userId;
 
     const post = await prisma.post.findUniqueOrThrow({
-      where: { slug: title }, // 슬러그를 이용한 조회
+      where: { slug: title },
       include: {
         user: { select: { id: true, email: true, name: true } },
-        _count: { select: { comments: true, Like: true } }, // 댓글 수 및 좋아요 수 포함
+        _count: { select: { comments: true, Like: true } },
       },
     });
 
-    // 기본값으로 isLiked를 false로 설정
     post.isLiked = false;
 
     // 로그인된 유저일 경우에만 좋아요 여부를 검사
@@ -542,6 +544,8 @@ app.get(
     const { title } = req.params;
     const userId = req.user?.userId;
 
+    console.log(req.user);
+
     const post = await prisma.post.findUniqueOrThrow({
       where: { slug: title },
       select: { id: true },
@@ -745,6 +749,80 @@ app.delete(
     }
 
     res.status(204).send();
+  })
+);
+
+/* ========================
+/
+/
+/       File Upload API
+/
+/
+======================== */
+
+// 허용된 이미지 파일 형식
+const ALLOWED_MIME_TYPES = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/gif": ".gif",
+  "image/webp": ".webp",
+};
+
+// 파일 업로드 설정
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.resolve("uploads"));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const filename = path.basename(file.originalname, ext);
+    cb(null, `${filename}-${Date.now()}${ext}`);
+  },
+});
+
+// 이미지 파일만 허용
+const fileFilter = (req, file, cb) => {
+  if (ALLOWED_MIME_TYPES[file.mimetype]) {
+    cb(null, true); // 허용된 파일이면 업로드
+  } else {
+    cb(new Error("허용된 이미지 파일 형식만 업로드할 수 있습니다."), false); // 이미지가 아니면 업로드 불가
+  }
+};
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 }, // 5MB 제한
+  fileFilter, // 이미지 파일 필터 추가
+});
+
+// POST /upload -> 파일 업로드
+app.post("/upload", upload.single("file"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).send({ error: "이미지 파일을 업로드하세요." });
+  }
+
+  const { filename } = req.file;
+  const fileUrl = `/uploads/${filename}`;
+  res.send({ fileUrl });
+});
+
+// 정적 파일에 대한 보안 헤더 설정
+app.use(
+  "/uploads",
+  express.static(path.resolve("uploads"), {
+    setHeaders: (res, path) => {
+      // 콘텐츠 보안 정책 (CSP)
+      res.setHeader("Content-Security-Policy", "default-src 'self'");
+
+      // MIME 타입 감지 방지
+      res.setHeader("X-Content-Type-Options", "nosniff");
+
+      // XSS 공격 방지
+      res.setHeader("X-XSS-Protection", "1; mode=block");
+
+      // Referrer Policy 설정
+      res.setHeader("Referrer-Policy", "no-referrer");
+    },
   })
 );
 
