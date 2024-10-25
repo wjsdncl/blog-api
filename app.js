@@ -8,6 +8,7 @@ import cors from "cors";
 import { getChoseong } from "es-hangul";
 
 import multer from "multer";
+import sharp from "sharp";
 import path from "path";
 import fs from "fs";
 
@@ -761,7 +762,7 @@ app.delete(
 /
 ======================== */
 
-// 파일 업로드 폴더 생성
+// 업로드 폴더 생성
 if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads", { recursive: true });
 }
@@ -774,45 +775,116 @@ const ALLOWED_MIME_TYPES = {
   "image/webp": ".webp",
 };
 
-// 파일 업로드 설정
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.resolve("uploads"));
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const filename = path.basename(file.originalname, ext);
-    cb(null, `${filename}-${Date.now()}${ext}`);
-  },
-});
-
-// 이미지 파일만 허용
-const fileFilter = (req, file, cb) => {
-  if (ALLOWED_MIME_TYPES[file.mimetype]) {
-    cb(null, true); // 허용된 파일이면 업로드
-  } else {
-    cb(new Error("허용된 이미지 파일 형식만 업로드할 수 있습니다."), false); // 이미지가 아니면 업로드 불가
-  }
+// 해상도 설정
+const RESOLUTIONS = {
+  hd: { width: 1280, height: 720 },
+  thumbnail: { width: 400, height: 225 }, // 16:9 비율 썸네일
+  original: { width: 1280, height: 720 }, // 최대 크기
 };
 
 const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024, files: 1 }, // 5MB 제한
-  fileFilter, // 이미지 파일 필터 추가
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB 제한
+    files: 1,
+  },
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_MIME_TYPES[file.mimetype]) {
+      cb(null, true);
+    } else {
+      cb(new Error("허용된 이미지 파일 형식만 업로드할 수 있습니다."), false);
+    }
+  },
 });
 
-// POST /upload -> 파일 업로드
+// 이미지 처리 함수 (리사이징 및 저장)
+async function processImage(buffer, originalName) {
+  const metadata = await sharp(buffer).metadata();
+  const filename = `${path.parse(originalName).name}-${Date.now()}.webp`;
+  const savePath = path.resolve(`uploads/${filename}`);
+
+  // 원본 이미지의 가로세로 비율 계산
+  const aspectRatio = metadata.width / metadata.height;
+
+  // HD 크기(1280x720)에 맞추기
+  let resizeOptions = { ...RESOLUTIONS.hd };
+
+  // 이미지 비율에 따라 리사이징 옵션 설정
+  if (aspectRatio > 16 / 9) {
+    resizeOptions.height = null;
+  } else {
+    resizeOptions.width = null;
+  }
+
+  // 이미지 처리 및 저장
+  await sharp(buffer)
+    .resize(resizeOptions.width, resizeOptions.height, {
+      withoutEnlargement: true, // 원본보다 크게 확대하지 않음
+      fit: "inside", // 비율 유지
+    })
+    .webp({
+      quality: 85, // 화질 설정
+      effort: 6, // 압축 수준
+    })
+    .toFile(savePath);
+
+  return filename;
+}
+
+app.get(
+  "/images/:size/:filename",
+  asyncHandler(async (req, res) => {
+    const { size, filename } = req.params;
+    const imagePath = path.resolve(`uploads/${filename}`);
+
+    if (!fs.existsSync(imagePath)) {
+      return res.status(404).send("이미지를 찾을 수 없습니다.");
+    }
+
+    let resizeOptions = null;
+
+    switch (size) {
+      case "thumbnail":
+        resizeOptions = RESOLUTIONS.thumbnail;
+        break;
+      case "hd":
+        resizeOptions = RESOLUTIONS.hd;
+        break;
+      default:
+        resizeOptions = null;
+    }
+
+    let imageProcess = sharp(imagePath);
+
+    if (resizeOptions) {
+      if (size === "thumbnail") {
+        imageProcess = imageProcess.resize(resizeOptions.width, resizeOptions.height, {
+          fit: "cover",
+          position: "center",
+        });
+      } else {
+        imageProcess = imageProcess.resize(resizeOptions.width, resizeOptions.height, {
+          fit: "inside",
+          withoutEnlargement: true,
+        });
+      }
+    }
+
+    res.setHeader("Cache-Control", "public, max-age=31536000");
+    res.setHeader("Content-Type", "image/webp");
+
+    imageProcess.pipe(res);
+  })
+);
+
 app.post(
   "/upload",
   asyncHandler(async (req, res) => {
-    upload.single("file")(req, res, async (err) => {
-      if (err instanceof multer.MulterError) {
-        if (err.code === "LIMIT_FILE_SIZE") {
+    await upload.single("file")(req, res, async (err) => {
+      if (err) {
+        if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
           return res.status(400).send({ error: "파일 크기가 5MB를 초과합니다." });
         }
-        return res.status(400).send({ error: "파일 업로드 중 오류가 발생했습니다." });
-      } else if (err) {
-        // 커스텀 에러 메시지 처리 (예: 파일 형식 오류)
         return res.status(400).send({ error: err.message });
       }
 
@@ -820,30 +892,16 @@ app.post(
         return res.status(400).send({ error: "이미지 파일을 업로드하세요." });
       }
 
-      const { filename } = req.file;
-      const fileUrl = `/uploads/${filename}`;
-      res.send({ fileUrl });
+      const filename = await processImage(req.file.buffer, req.file.originalname);
+
+      res.send({
+        success: true,
+        urls: {
+          thumbnail: `/images/thumbnail/${filename}`,
+          hd: `/images/hd/${filename}`,
+        },
+      });
     });
-  })
-);
-
-// 정적 파일에 대한 보안 헤더 설정
-app.use(
-  "/uploads",
-  express.static(path.resolve("uploads"), {
-    setHeaders: (res, path) => {
-      // 콘텐츠 보안 정책 (CSP)
-      res.setHeader("Content-Security-Policy", "default-src 'self'");
-
-      // MIME 타입 감지 방지
-      res.setHeader("X-Content-Type-Options", "nosniff");
-
-      // XSS 공격 방지
-      res.setHeader("X-XSS-Protection", "1; mode=block");
-
-      // Referrer Policy 설정
-      res.setHeader("Referrer-Policy", "no-referrer");
-    },
   })
 );
 
