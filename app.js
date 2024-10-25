@@ -9,6 +9,7 @@ import { getChoseong } from "es-hangul";
 
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 
 import { assert } from "superstruct"; // 데이터 검증을 위한 라이브러리
 import {
@@ -760,6 +761,11 @@ app.delete(
 /
 ======================== */
 
+// 파일 업로드 폴더 생성
+if (!fs.existsSync("uploads")) {
+  fs.mkdirSync("uploads", { recursive: true });
+}
+
 // 허용된 이미지 파일 형식
 const ALLOWED_MIME_TYPES = {
   "image/jpeg": ".jpg",
@@ -796,15 +802,30 @@ const upload = multer({
 });
 
 // POST /upload -> 파일 업로드
-app.post("/upload", upload.single("file"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).send({ error: "이미지 파일을 업로드하세요." });
-  }
+app.post(
+  "/upload",
+  asyncHandler(async (req, res) => {
+    upload.single("file")(req, res, async (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res.status(400).send({ error: "파일 크기가 5MB를 초과합니다." });
+        }
+        return res.status(400).send({ error: "파일 업로드 중 오류가 발생했습니다." });
+      } else if (err) {
+        // 커스텀 에러 메시지 처리 (예: 파일 형식 오류)
+        return res.status(400).send({ error: err.message });
+      }
 
-  const { filename } = req.file;
-  const fileUrl = `/uploads/${filename}`;
-  res.send({ fileUrl });
-});
+      if (!req.file) {
+        return res.status(400).send({ error: "이미지 파일을 업로드하세요." });
+      }
+
+      const { filename } = req.file;
+      const fileUrl = `/uploads/${filename}`;
+      res.send({ fileUrl });
+    });
+  })
+);
 
 // 정적 파일에 대한 보안 헤더 설정
 app.use(
