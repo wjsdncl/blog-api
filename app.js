@@ -537,19 +537,19 @@ app.get(
   })
 );
 
-// GET /comments/:title -> 특정 포스트의 댓글 정보를 가져옴
+// GET /comments/:postID -> 특정 포스트의 댓글 정보를 가져옴
 app.get(
-  "/comments/:title",
+  "/comments/:postID",
   optionalAuthenticate, // JWT 인증 (선택적)
   asyncHandler(async (req, res) => {
     const { offset = 0, limit = 10 } = req.query;
-    const { title } = req.params;
+    const { postId } = req.params;
     const userId = req.user?.userId;
 
     console.log(req.user);
 
     const post = await prisma.post.findUniqueOrThrow({
-      where: { slug: title },
+      where: { id: parseInt(postId) },
       select: { id: true },
     });
 

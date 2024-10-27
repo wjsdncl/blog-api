@@ -31,7 +31,7 @@ export function asyncHandler(handler) {
           case "P2025":
             response = {
               success: false,
-              error: "리소스를 찾을 수 없습니다.",
+              error: "데이터 없음 오류: 요청한 데이터를 찾을 수 없습니다.",
             };
             res.status(404).json(response);
             break;
