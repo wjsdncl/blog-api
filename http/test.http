@@ -85,8 +85,8 @@ Authorization: Bearer yourAccessToken
 ### 모든 댓글 가져오기
 GET http://localhost:8000/comments
 
-### 특정 포스트의 댓글 가져오기 (타이틀 필요)
-GET http://localhost:8000/comments/인공지능의-미래
+### 특정 포스트의 댓글 가져오기 (게시글 ID 필요)
+GET http://localhost:8000/comments/1
 
 ### 댓글 생성하기
 POST http://localhost:8000/comments
