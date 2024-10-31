@@ -829,6 +829,24 @@ async function processImage(buffer, originalName) {
   return filename;
 }
 
+// 모든 이미지 목록 조회 API
+app.get(
+  "/images",
+  asyncHandler(async (req, res) => {
+    try {
+      const files = await fs.promises.readdir("uploads");
+      const images = files.map((filename) => ({
+        original: `/images/original/${filename}`,
+        thumbnail: `/images/thumbnail/${filename}`,
+        hd: `/images/hd/${filename}`,
+      }));
+      res.send(images);
+    } catch (error) {
+      res.status(500).send({ error: "이미지 목록을 불러오는 중 오류가 발생했습니다." });
+    }
+  })
+);
+
 app.get(
   "/images/:size/:filename",
   asyncHandler(async (req, res) => {

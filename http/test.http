@@ -127,3 +127,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3NTg1M
 ### 댓글 좋아요/취소 토글 (댓글 ID 필요)
 POST http://localhost:8000/comments/댓글ID/like
 Authorization: Bearer yourAccessToken
+
+
+### 이미지 불러오기
+GET http://localhost:8000/images/
