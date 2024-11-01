@@ -760,6 +760,7 @@ app.delete(
 /
 ======================== */
 
+// Supabase 클라이언트 생성
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 // 허용된 이미지 파일 형식
@@ -773,6 +774,7 @@ const ALLOWED_MIME_TYPES = {
 // HD 해상도 설정
 const HD_RESOLUTION = { width: 1280, height: 720 };
 
+// Multer 설정 (파일 업로드 미들웨어)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
@@ -788,32 +790,29 @@ const upload = multer({
 // 이미지 처리 및 Supabase에 업로드 함수
 async function processAndUploadImage(buffer, originalName) {
   const filename = `${Date.now()}-${originalName}.webp`;
-  try {
-    const resizedBuffer = await sharp(buffer)
-      .resize(HD_RESOLUTION.width, HD_RESOLUTION.height, {
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .webp({ quality: 85 })
-      .toBuffer();
 
-    const { data, error } = await supabase.storage
-      .from("uploads")
-      .upload(filename, resizedBuffer, { contentType: "image/webp" });
+  const resizedBuffer = await sharp(buffer)
+    .resize(HD_RESOLUTION.width, HD_RESOLUTION.height, {
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: 85 })
+    .toBuffer();
 
-    if (error) throw new Error(`이미지 업로드 중 에러 발생: ${error.message}`);
+  const { data, error } = await supabase.storage
+    .from("uploads")
+    .upload(filename, resizedBuffer, { contentType: "image/webp" });
 
-    const { publicURL } = supabase.storage.from("uploads").getPublicUrl(filename);
-    return publicURL;
-  } catch (error) {
-    console.error("이미지 처리 및 업로드 중 에러 발생:", error.message);
-    throw new Error(`이미지 처리 및 업로드 중 에러 발생: ${error.message}`);
-  }
+  if (error) throw new Error(`이미지 업로드 중 에러 발생: ${error.message}`);
+
+  const { publicURL } = supabase.storage.from("uploads").getPublicUrl(filename);
+  return publicURL;
 }
 
-// 이미지 업로드 API
+// POST /upload -> 이미지 업로드 API
 app.post(
   "/upload",
+  requiredAuthenticate,
   upload.single("file"),
   asyncHandler(async (req, res) => {
     if (!req.file) {
