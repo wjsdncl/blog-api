@@ -789,7 +789,8 @@ const upload = multer({
 
 // 이미지 처리 및 Supabase에 업로드 함수
 async function processAndUploadImage(buffer, originalName) {
-  const filename = `${Date.now()}-${originalName}.webp`;
+  const baseName = path.basename(originalName, path.extname(originalName));
+  const filename = `${Date.now()}-${baseName}.webp`;
 
   const resizedBuffer = await sharp(buffer)
     .resize(HD_RESOLUTION.width, HD_RESOLUTION.height, {
