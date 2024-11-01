@@ -9,8 +9,8 @@ import { getChoseong } from "es-hangul";
 
 import multer from "multer";
 import sharp from "sharp";
-import path from "path";
-import fs from "fs";
+
+import { createClient } from "@supabase/supabase-js";
 
 import { assert } from "superstruct"; // 데이터 검증을 위한 라이브러리
 import {
@@ -760,10 +760,7 @@ app.delete(
 /
 ======================== */
 
-// 업로드 폴더 생성
-if (!fs.existsSync("uploads")) {
-  fs.mkdirSync("uploads", { recursive: true });
-}
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 // 허용된 이미지 파일 형식
 const ALLOWED_MIME_TYPES = {
@@ -773,19 +770,12 @@ const ALLOWED_MIME_TYPES = {
   "image/webp": ".webp",
 };
 
-// 해상도 설정
-const RESOLUTIONS = {
-  hd: { width: 1280, height: 720 },
-  thumbnail: { width: 400, height: 225 }, // 16:9 비율 썸네일
-  original: { width: 1280, height: 720 }, // 최대 크기
-};
+// HD 해상도 설정
+const HD_RESOLUTION = { width: 1280, height: 720 };
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB 제한
-    files: 1,
-  },
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
   fileFilter: (req, file, cb) => {
     if (ALLOWED_MIME_TYPES[file.mimetype]) {
       cb(null, true);
@@ -795,130 +785,47 @@ const upload = multer({
   },
 });
 
-// 이미지 처리 함수 (리사이징 및 저장)
-async function processImage(buffer, originalName) {
-  const metadata = await sharp(buffer).metadata();
-  const filename = `${path.parse(originalName).name}-${Date.now()}.webp`;
-  const savePath = path.resolve(`uploads/${filename}`);
-
-  // 원본 이미지의 가로세로 비율 계산
-  const aspectRatio = metadata.width / metadata.height;
-
-  // HD 크기(1280x720)에 맞추기
-  let resizeOptions = { ...RESOLUTIONS.hd };
-
-  // 이미지 비율에 따라 리사이징 옵션 설정
-  if (aspectRatio > 16 / 9) {
-    resizeOptions.height = null;
-  } else {
-    resizeOptions.width = null;
-  }
-
-  // 이미지 처리 및 저장
-  await sharp(buffer)
-    .resize(resizeOptions.width, resizeOptions.height, {
-      withoutEnlargement: true, // 원본보다 크게 확대하지 않음
-      fit: "inside", // 비율 유지
+// 이미지 처리 및 Supabase에 업로드 함수
+async function processAndUploadImage(buffer, originalName) {
+  const filename = `${Date.now()}-${originalName}.webp`;
+  const resizedBuffer = await sharp(buffer)
+    .resize(HD_RESOLUTION.width, HD_RESOLUTION.height, {
+      fit: "inside",
+      withoutEnlargement: true,
     })
-    .webp({
-      quality: 85, // 화질 설정
-      effort: 6, // 압축 수준
-    })
-    .toFile(savePath);
+    .webp({ quality: 85 })
+    .toBuffer();
 
-  return filename;
+  // Supabase에 업로드
+  const { data, error } = await supabase.storage
+    .from("uploads")
+    .upload(filename, resizedBuffer, { contentType: "image/webp" });
+
+  if (error) throw new Error(error.message);
+
+  const { publicURL } = supabase.storage.from("uploads").getPublicUrl(filename);
+  return publicURL;
 }
 
-// 모든 이미지 목록 조회 API
-app.get(
-  "/images",
-  asyncHandler(async (req, res) => {
-    try {
-      const files = await fs.promises.readdir("uploads");
-      const images = files.map((filename) => ({
-        original: `/images/original/${filename}`,
-        thumbnail: `/images/thumbnail/${filename}`,
-        hd: `/images/hd/${filename}`,
-      }));
-      res.send(images);
-    } catch (error) {
-      res.status(500).send({ error: "이미지 목록을 불러오는 중 오류가 발생했습니다." });
-    }
-  })
-);
-
-app.get(
-  "/images/:size/:filename",
-  asyncHandler(async (req, res) => {
-    const { size, filename } = req.params;
-    const imagePath = path.resolve(`uploads/${filename}`);
-
-    if (!fs.existsSync(imagePath)) {
-      return res.status(404).send("이미지를 찾을 수 없습니다.");
-    }
-
-    let resizeOptions = null;
-
-    switch (size) {
-      case "thumbnail":
-        resizeOptions = RESOLUTIONS.thumbnail;
-        break;
-      case "hd":
-        resizeOptions = RESOLUTIONS.hd;
-        break;
-      default:
-        resizeOptions = null;
-    }
-
-    let imageProcess = sharp(imagePath);
-
-    if (resizeOptions) {
-      if (size === "thumbnail") {
-        imageProcess = imageProcess.resize(resizeOptions.width, resizeOptions.height, {
-          fit: "cover",
-          position: "center",
-        });
-      } else {
-        imageProcess = imageProcess.resize(resizeOptions.width, resizeOptions.height, {
-          fit: "inside",
-          withoutEnlargement: true,
-        });
-      }
-    }
-
-    res.setHeader("Cache-Control", "public, max-age=31536000");
-    res.setHeader("Content-Type", "image/webp");
-
-    imageProcess.pipe(res);
-  })
-);
-
+// 이미지 업로드 API
 app.post(
   "/upload",
+  upload.single("file"),
   asyncHandler(async (req, res) => {
-    await upload.single("file")(req, res, async (err) => {
-      if (err) {
-        if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
-          return res.status(400).send({ error: "파일 크기가 5MB를 초과합니다." });
-        }
-        return res.status(400).send({ error: err.message });
-      }
+    if (!req.file) {
+      return res.status(400).send({ error: "이미지 파일을 업로드하세요." });
+    }
 
-      if (!req.file) {
-        return res.status(400).send({ error: "이미지 파일을 업로드하세요." });
-      }
+    // HD 해상도로 이미지 처리 및 업로드
+    const hdUrl = await processAndUploadImage(req.file.buffer, req.file.originalname);
 
-      const filename = await processImage(req.file.buffer, req.file.originalname);
-
-      res.send({
-        success: true,
-        urls: {
-          thumbnail: `/images/thumbnail/${filename}`,
-          hd: `/images/hd/${filename}`,
-        },
-      });
+    res.send({
+      success: true,
+      url: hdUrl,
     });
   })
 );
 
-app.listen(8000, () => console.log("Server Started"));
+app.listen(8000, () => {
+  console.log("Server is running on http://localhost:8000");
+});
