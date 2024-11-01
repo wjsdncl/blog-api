@@ -9,6 +9,7 @@ import { getChoseong } from "es-hangul";
 
 import multer from "multer";
 import sharp from "sharp";
+import path from "path";
 
 import { createClient } from "@supabase/supabase-js";
 
