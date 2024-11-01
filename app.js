@@ -788,23 +788,27 @@ const upload = multer({
 // 이미지 처리 및 Supabase에 업로드 함수
 async function processAndUploadImage(buffer, originalName) {
   const filename = `${Date.now()}-${originalName}.webp`;
-  const resizedBuffer = await sharp(buffer)
-    .resize(HD_RESOLUTION.width, HD_RESOLUTION.height, {
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .webp({ quality: 85 })
-    .toBuffer();
+  try {
+    const resizedBuffer = await sharp(buffer)
+      .resize(HD_RESOLUTION.width, HD_RESOLUTION.height, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 85 })
+      .toBuffer();
 
-  // Supabase에 업로드
-  const { data, error } = await supabase.storage
-    .from("uploads")
-    .upload(filename, resizedBuffer, { contentType: "image/webp" });
+    const { data, error } = await supabase.storage
+      .from("uploads")
+      .upload(filename, resizedBuffer, { contentType: "image/webp" });
 
-  if (error) throw new Error(error.message);
+    if (error) throw new Error(`이미지 업로드 중 에러 발생: ${error.message}`);
 
-  const { publicURL } = supabase.storage.from("uploads").getPublicUrl(filename);
-  return publicURL;
+    const { publicURL } = supabase.storage.from("uploads").getPublicUrl(filename);
+    return publicURL;
+  } catch (error) {
+    console.error("이미지 처리 및 업로드 중 에러 발생:", error.message);
+    throw new Error(`이미지 처리 및 업로드 중 에러 발생: ${error.message}`);
+  }
 }
 
 // 이미지 업로드 API
@@ -813,7 +817,7 @@ app.post(
   upload.single("file"),
   asyncHandler(async (req, res) => {
     if (!req.file) {
-      return res.status(400).send({ error: "이미지 파일을 업로드하세요." });
+      return res.status(400).json({ success: false, error: "이미지 파일을 업로드하세요." });
     }
 
     // HD 해상도로 이미지 처리 및 업로드

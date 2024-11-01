@@ -56,10 +56,9 @@ export function asyncHandler(handler) {
         };
         res.status(401).json(response);
       } else {
-        console.error("Unhandled Error:", e);
         response = {
           success: false,
-          error: "서버 내부 오류가 발생했습니다.",
+          error: `알 수 없는 오류: ${e.message}`,
         };
         res.status(500).json(response);
       }
