@@ -800,12 +800,12 @@ async function processAndUploadImage(buffer, originalName) {
     .toBuffer();
 
   const { data, error } = await supabase.storage
-    .from("uploads")
+    .from("images")
     .upload(filename, resizedBuffer, { contentType: "image/webp" });
 
   if (error) throw new Error(`이미지 업로드 중 에러 발생: ${error.message}`);
 
-  const { publicURL } = supabase.storage.from("uploads").getPublicUrl(filename);
+  const { publicURL } = supabase.storage.from("images").getPublicUrl(data.path);
   return publicURL;
 }
 
