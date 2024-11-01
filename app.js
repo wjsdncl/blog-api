@@ -465,28 +465,38 @@ app.patch(
 
     assert(req.body, UpdatePost); // 유효성 검사
 
-    let slugBase = title
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9가-힣ㄱ-ㅎ-]/g, "");
+    const id = Number(req.params.id);
 
-    let slug = `${slugBase}`;
-    while (await prisma.post.findFirst({ where: { slug } })) {
-      slug = `${slugBase}-${crypto.randomBytes(2).toString("hex").slice(0, 3)}`;
+    // 게시글 제목 수정 시, 슬러그도 수정
+    const existingPost = await prisma.post.findUnique({
+      where: { id },
+      select: { slug: true, title: true },
+    });
+
+    let slug;
+    if (title && title !== existingPost.title) {
+      let slugBase = title
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9가-힣ㄱ-ㅎ-]/g, "");
+
+      slug = `${slugBase}`;
+      while (await prisma.post.findFirst({ where: { slug } })) {
+        slug = `${slugBase}-${crypto.randomBytes(2).toString("hex").slice(0, 3)}`;
+      }
+    } else {
+      slug = existingPost.slug;
     }
 
-    // 수정된 제목이 있을 경우 choseongTitle 업데이트
     const choseongTitle = title ? getChoseong(title).replace(/\s+/g, "") : undefined;
-
-    const id = Number(req.params.id);
 
     const post = await prisma.post.update({
       where: { id },
       data: {
         ...req.body,
-        ...(choseongTitle && { choseongTitle }), // 초성 저장
-        ...(slug && { slug }), // 슬러그 저장
+        ...(choseongTitle && { choseongTitle }),
+        ...(slug && { slug }),
       },
     });
 
