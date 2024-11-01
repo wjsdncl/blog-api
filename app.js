@@ -805,8 +805,8 @@ async function processAndUploadImage(buffer, originalName) {
 
   if (error) throw new Error(`이미지 업로드 중 에러 발생: ${error.message}`);
 
-  const { publicURL } = supabase.storage.from("images").getPublicUrl(data.path);
-  return publicURL;
+  const result = supabase.storage.from("images").getPublicUrl(data.path);
+  return result.data.publicUrl;
 }
 
 // POST /upload -> 이미지 업로드 API
@@ -820,11 +820,11 @@ app.post(
     }
 
     // HD 해상도로 이미지 처리 및 업로드
-    const hdUrl = await processAndUploadImage(req.file.buffer, req.file.originalname);
+    const url = await processAndUploadImage(req.file.buffer, req.file.originalname);
 
     res.send({
       success: true,
-      url: hdUrl,
+      url,
     });
   })
 );
