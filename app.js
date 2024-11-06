@@ -273,6 +273,11 @@ app.get(
         orderBy = { createdAt: "asc" };
         break;
       case "newest":
+        orderBy = { createdAt: "desc" };
+        break;
+      case "like":
+        orderBy = { likes: "desc" };
+        break;
       default:
         orderBy = { createdAt: "desc" };
     }
