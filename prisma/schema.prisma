@@ -24,8 +24,8 @@ model User {
 
   posts         Post[]
   comments      Comment[] 
-  Like Like[]
-  CommentLike CommentLike[]
+  Like          Like[]
+  CommentLike   CommentLike[]
 }
 
 model Post {
@@ -34,8 +34,8 @@ model Post {
   coverImg      String?
   category      String?
   title         String
-  choseongTitle String?
-  content       String?
+  choseongTitle String
+  content       String   @db.Text
   tags          String[]
   likes         Int      @default(0)
   createdAt     DateTime @default(now())
@@ -89,3 +89,22 @@ model CommentLike {
 
   @@id([userId, commentId])
 }
+
+
+// Portfolio
+model Project {
+  id          Int      @id @default(autoincrement())
+  title       String   
+  startDate   DateTime
+  endDate     DateTime?
+  description String   @db.Text
+  summary     String[] 
+  techStack   String[] 
+  githubLink  String?  @db.VarChar(2083) 
+  projectLink String?  @db.VarChar(2083) 
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([startDate, endDate]) 
+}
+

@@ -846,6 +846,106 @@ app.post(
   })
 );
 
+/* ========================
+/
+/
+/       Portfolio API
+/
+/
+======================== */
+
+// GET /projects -> 모든 프로젝트 정보 가져오기
+app.get(
+  "/projects",
+  asyncHandler(async (req, res) => {
+    const projects = await prisma.project.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.send(projects);
+  })
+);
+
+// GET /projects/:id -> 특정 프로젝트 정보 가져오기
+app.get(
+  "/projects/:id",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const project = await prisma.project.findUniqueOrThrow({
+      where: { id: Number(id) },
+    });
+
+    res.send(project);
+  })
+);
+
+// POST /projects -> 새로운 프로젝트 생성
+app.post(
+  "/projects",
+  requiredAuthenticate, // JWT 인증 (필수)
+  asyncHandler(async (req, res) => {
+    const userId = req.user?.userId; // 현재 인증된 유저 ID
+    const { title, startDate, endDate, description, summary, techStack, githubLink, projectLink } = req.body;
+
+    const newProject = await prisma.project.create({
+      data: {
+        title,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        description,
+        summary,
+        techStack,
+        githubLink,
+        projectLink,
+      },
+    });
+
+    res.status(201).send(newProject);
+  })
+);
+
+// PUT /projects/:id -> 특정 프로젝트 정보 수정
+app.put(
+  "/projects/:id",
+  requiredAuthenticate, // JWT 인증 (필수)
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { title, startDate, endDate, description, summary, techStack, githubLink, projectLink } = req.body;
+
+    const updatedProject = await prisma.project.update({
+      where: { id: Number(id) },
+      data: {
+        title,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        description,
+        summary,
+        techStack,
+        githubLink,
+        projectLink,
+      },
+    });
+
+    res.send(updatedProject);
+  })
+);
+
+// DELETE /projects/:id -> 특정 프로젝트 삭제
+app.delete(
+  "/projects/:id",
+  requiredAuthenticate, // JWT 인증 (필수)
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    await prisma.project.delete({
+      where: { id: Number(id) },
+    });
+
+    res.status(204).send({ success: true });
+  })
+);
+
 app.listen(8000, () => {
   console.log("Server is running on http://localhost:8000");
 });
