@@ -95,6 +95,7 @@ model CommentLike {
 model Project {
   id          Int      @id @default(autoincrement())
   title       String   
+  isPersonal  Boolean   @default(true)
   startDate   DateTime
   endDate     DateTime?
   description String   @db.Text
