@@ -885,15 +885,19 @@ app.post(
   "/projects",
   requiredAuthenticate, // JWT 인증 (필수)
   asyncHandler(async (req, res) => {
-    const userId = req.user?.userId; // 현재 인증된 유저 ID
-    const { title, startDate, endDate, description, summary, techStack, githubLink, projectLink } = req.body;
+    assert(req.body, CreateProject); // 유효성 검사
+
+    const { title, isPersonal, startDate, endDate, description, content, summary, techStack, githubLink, projectLink } =
+      req.body;
 
     const newProject = await prisma.project.create({
       data: {
         title,
+        isPersonal,
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         description,
+        content,
         summary,
         techStack,
         githubLink,
@@ -911,15 +915,20 @@ app.put(
   requiredAuthenticate, // JWT 인증 (필수)
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { title, startDate, endDate, description, summary, techStack, githubLink, projectLink } = req.body;
+    assert(req.body, UpdateProject); // 유효성 검사
+
+    const { title, isPersonal, startDate, endDate, description, content, summary, techStack, githubLink, projectLink } =
+      req.body;
 
     const updatedProject = await prisma.project.update({
       where: { id: Number(id) },
       data: {
         title,
+        isPersonal,
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         description,
+        content,
         summary,
         techStack,
         githubLink,

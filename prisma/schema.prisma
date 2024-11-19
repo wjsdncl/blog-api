@@ -93,18 +93,19 @@ model CommentLike {
 
 // Portfolio
 model Project {
-  id          Int      @id @default(autoincrement())
-  title       String   
-  isPersonal  Boolean   @default(true)
-  startDate   DateTime
-  endDate     DateTime?
-  description String   @db.Text
-  summary     String[] 
-  techStack   String[] 
-  githubLink  String?  @db.VarChar(2083) 
-  projectLink String?  @db.VarChar(2083) 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          Int      @id @default(autoincrement())  // 프로젝트 고유 ID (자동 증가)
+  title       String                                  // 프로젝트 제목
+  isPersonal  Boolean   @default(true)                // 개인 프로젝트 여부
+  startDate   DateTime                                // 프로젝트 시작일
+  endDate     DateTime?                               // 프로젝트 종료일 (선택적)
+  description String                                  // 프로젝트 설명
+  content     String   @db.Text                       // 프로젝트 상세 내용
+  summary     String[]                                // 프로젝트 요약
+  techStack   String[]                                // 사용한 기술 스택
+  githubLink  String?  @db.VarChar(2083)              // 깃허브 링크 (선택적)
+  projectLink String?  @db.VarChar(2083)              // 프로젝트 링크 (선택적)
+  createdAt   DateTime @default(now())                // 프로젝트 생성일
+  updatedAt   DateTime @updatedAt                     // 프로젝트 수정일
 
   @@index([startDate, endDate]) 
 }
