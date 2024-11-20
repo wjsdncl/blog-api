@@ -883,10 +883,7 @@ app.get(
 // POST /projects -> 새로운 프로젝트 생성
 app.post(
   "/projects",
-  requiredAuthenticate, // JWT 인증 (필수)
   asyncHandler(async (req, res) => {
-    assert(req.body, CreateProject); // 유효성 검사
-
     const { title, isPersonal, startDate, endDate, description, content, summary, techStack, githubLink, projectLink } =
       req.body;
 
@@ -912,10 +909,8 @@ app.post(
 // PUT /projects/:id -> 특정 프로젝트 정보 수정
 app.put(
   "/projects/:id",
-  requiredAuthenticate, // JWT 인증 (필수)
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    assert(req.body, UpdateProject); // 유효성 검사
 
     const { title, isPersonal, startDate, endDate, description, content, summary, techStack, githubLink, projectLink } =
       req.body;
@@ -943,7 +938,6 @@ app.put(
 // DELETE /projects/:id -> 특정 프로젝트 삭제
 app.delete(
   "/projects/:id",
-  requiredAuthenticate, // JWT 인증 (필수)
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
