@@ -99,7 +99,6 @@ model Project {
   startDate   DateTime                                // 프로젝트 시작일
   endDate     DateTime?                               // 프로젝트 종료일 (선택적)
   description String                                  // 프로젝트 설명
-  content     String   @db.Text @default("")          // 프로젝트 상세 내용
   summary     String[]                                // 프로젝트 요약
   techStack   String[]                                // 사용한 기술 스택
   githubLink  String?  @db.VarChar(2083)              // 깃허브 링크 (선택적)
