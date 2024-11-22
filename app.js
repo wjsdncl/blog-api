@@ -906,29 +906,15 @@ app.post(
   })
 );
 
-// PUT /projects/:id -> 특정 프로젝트 정보 수정
-app.put(
+// PATCH /projects/:id -> 특정 프로젝트 정보 수정
+app.patch(
   "/projects/:id",
   asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    const { title, isPersonal, startDate, endDate, description, content, summary, techStack, githubLink, projectLink } =
-      req.body;
-
     const updatedProject = await prisma.project.update({
       where: { id: Number(id) },
-      data: {
-        title,
-        isPersonal,
-        startDate: new Date(startDate),
-        endDate: endDate ? new Date(endDate) : null,
-        description,
-        content,
-        summary,
-        techStack,
-        githubLink,
-        projectLink,
-      },
+      data: req.body,
     });
 
     res.send(updatedProject);
