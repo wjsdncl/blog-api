@@ -374,6 +374,7 @@ app.post(
     let slugBase = title
       .toLowerCase()
       .trim()
+      .replace(/-/g, "") // 하이픈 제거
       .replace(/\s+/g, "-") // 공백을 하이픈으로
       .replace(/[^a-z0-9가-힣ㄱ-ㅎ-]/g, ""); // 특수문자 제거
 
@@ -461,7 +462,7 @@ app.post(
   })
 );
 
-// PATCH /posts/:id -> 특정 ���스트 정보를 수정
+// PATCH /posts/:id -> 특정 포스트 정보를 수정
 app.patch(
   "/posts/:id",
   requiredAuthenticate, // JWT 인증
@@ -483,7 +484,8 @@ app.patch(
       let slugBase = title
         .toLowerCase()
         .trim()
-        .replace(/\s+/g, "-")
+        .replace(/-/g, "") // 하이픈 제거
+        .replace(/\s+/g, "-") // 공백을 하이픈으로
         .replace(/[^a-z0-9가-힣ㄱ-ㅎ-]/g, "");
 
       slug = `${slugBase}`;
