@@ -461,7 +461,7 @@ app.post(
   })
 );
 
-// PATCH /posts/:id -> 특정 포스트 정보를 수정
+// PATCH /posts/:id -> 특정 ���스트 정보를 수정
 app.patch(
   "/posts/:id",
   requiredAuthenticate, // JWT 인증
@@ -787,9 +787,6 @@ const ALLOWED_MIME_TYPES = {
   "image/webp": ".webp",
 };
 
-// HD 해상도 설정
-const HD_RESOLUTION = { width: 1280, height: 720 };
-
 // Multer 설정 (파일 업로드 미들웨어)
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -808,12 +805,32 @@ async function processAndUploadImage(buffer, originalName) {
   const baseName = path.basename(originalName, path.extname(originalName));
   const filename = `${Date.now()}-${baseName}.webp`;
 
+  // 이미지 메타데이터를 읽어서 원본 크기 확인
+  const metadata = await sharp(buffer).metadata();
+  const { width: originalWidth, height: originalHeight } = metadata;
+
+  // 가로/세로 비율에 따라 리사이징 옵션 설정
+  let resizeOptions;
+  if (originalWidth >= originalHeight) {
+    // 가로가 더 길거나 같은 경우
+    resizeOptions = {
+      width: 1280,
+      height: Math.round((1280 * originalHeight) / originalWidth),
+    };
+  } else {
+    // 세로가 더 긴 경우
+    resizeOptions = {
+      width: Math.round((1280 * originalWidth) / originalHeight),
+      height: 1280,
+    };
+  }
+
   const resizedBuffer = await sharp(buffer)
-    .resize(HD_RESOLUTION.width, HD_RESOLUTION.height, {
+    .resize(resizeOptions.width, resizeOptions.height, {
       fit: "inside",
       withoutEnlargement: true,
     })
-    .webp({ quality: 85 })
+    .webp({ quality: 90 })
     .toBuffer();
 
   const { data, error } = await supabase.storage
