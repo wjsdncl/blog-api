@@ -35,7 +35,11 @@ const app = express();
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://wjsdncl-dev-hub.vercel.app"],
+    origin: [
+      "http://localhost:3000",
+      "https://wjsdncl-dev-hub.vercel.app",
+      "https://www.wjdalswo-dev.xyz",
+    ],
   })
 );
 app.use(express.json());
@@ -136,7 +140,8 @@ app.post(
     if (!refreshToken) return res.status(401).send({ message: "리프레시 토큰이 필요합니다." });
 
     jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err, decoded) => {
-      if (err) return res.status(403).send({ message: "리프레시 토큰이 유효하지 않거나 만료되었습니다." });
+      if (err)
+        return res.status(403).send({ message: "리프레시 토큰이 유효하지 않거나 만료되었습니다." });
 
       // 새로운 토큰 생성
       const { accessToken, refreshToken: newRefreshToken } = generateTokens(decoded.userId);
@@ -265,7 +270,14 @@ app.delete(
 app.get(
   "/posts",
   asyncHandler(async (req, res) => {
-    const { offset = 0, limit = 10, order = "newest", category = "", tag = "", search = "" } = req.query;
+    const {
+      offset = 0,
+      limit = 10,
+      order = "newest",
+      category = "",
+      tag = "",
+      search = "",
+    } = req.query;
 
     let orderBy;
     switch (order) {
@@ -416,49 +428,55 @@ app.post(
 
     assert({ userId, postId }, LikePost); // 유효성 검사
 
-    // 유저가 해당 포스트에 좋아요를 눌렀는지 확인
-    const existingLike = await prisma.like.findUnique({
-      where: {
-        userId_postId: { userId, postId },
-      },
-    });
-
-    const currentPost = await prisma.post.findUnique({
-      where: { id: postId },
-      select: { updatedAt: true },
-    });
-
-    let isLike;
-
-    const updateData = existingLike
-      ? { likes: { decrement: 1 }, updatedAt: currentPost.updatedAt } // 좋아요 취소
-      : { likes: { increment: 1 }, updatedAt: currentPost.updatedAt }; // 좋아요 추가
-
-    // 좋아요를 토글 처리
-    if (existingLike) {
-      await prisma.like.delete({
+    // 트랜잭션을 사용하여 좋아요 처리와 포스트 업데이트를 원자적으로 수행
+    const result = await prisma.$transaction(async (prisma) => {
+      // 유저가 해당 포스트에 좋아요를 눌렀는지 확인
+      const existingLike = await prisma.like.findUnique({
         where: {
           userId_postId: { userId, postId },
         },
       });
-      isLike = false;
-    } else {
-      await prisma.like.create({
-        data: {
-          userId,
-          postId,
-        },
-      });
-      isLike = true;
-    }
 
-    const updatedPost = await prisma.post.update({
-      where: { id: postId },
-      data: updateData,
-      select: { id: true, title: true, likes: true },
+      let isLike;
+      let updatedPost;
+
+      if (existingLike) {
+        // 좋아요 취소
+        await prisma.like.delete({
+          where: {
+            userId_postId: { userId, postId },
+          },
+        });
+
+        updatedPost = await prisma.post.update({
+          where: { id: postId },
+          data: { likes: { decrement: 1 } },
+          select: { id: true, title: true, likes: true },
+        });
+
+        isLike = false;
+      } else {
+        // 좋아요 추가
+        await prisma.like.create({
+          data: {
+            userId,
+            postId,
+          },
+        });
+
+        updatedPost = await prisma.post.update({
+          where: { id: postId },
+          data: { likes: { increment: 1 } },
+          select: { id: true, title: true, likes: true },
+        });
+
+        isLike = true;
+      }
+
+      return { updatedPost, isLike };
     });
 
-    res.send({ post: updatedPost, isLike });
+    res.send({ post: result.updatedPost, isLike: result.isLike });
   })
 );
 
@@ -618,7 +636,9 @@ app.get(
         isLiked = !!existingLike;
       }
 
-      const repliesWithLikes = comment.replies ? await Promise.all(comment.replies.map(checkLikes)) : [];
+      const repliesWithLikes = comment.replies
+        ? await Promise.all(comment.replies.map(checkLikes))
+        : [];
 
       return {
         ...comment,
@@ -903,8 +923,18 @@ app.get(
 app.post(
   "/projects",
   asyncHandler(async (req, res) => {
-    const { title, isPersonal, startDate, endDate, description, content, summary, techStack, githubLink, projectLink } =
-      req.body;
+    const {
+      title,
+      isPersonal,
+      startDate,
+      endDate,
+      description,
+      content,
+      summary,
+      techStack,
+      githubLink,
+      projectLink,
+    } = req.body;
 
     const newProject = await prisma.project.create({
       data: {
