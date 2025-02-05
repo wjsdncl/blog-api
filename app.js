@@ -64,14 +64,14 @@ function generateTokens(userId) {
 
 // 유저 인증 미들웨어
 function requiredAuthenticate(req, res, next) {
-  const token = req.cookies?.accessToken;
+  const { accessToken: token } = req.cookies;
   if (!token) return res.status(401).send({ message: "로그인이 필요합니다." });
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
       // 액세스 토큰이 만료된 경우
       if (err.name === "TokenExpiredError") {
-        const refreshToken = req.cookies?.refreshToken;
+        const { refreshToken } = req.cookies;
         if (!refreshToken) {
           return res.status(401).send({ message: "세션이 만료되었습니다. 재로그인 해주세요." });
         }
@@ -112,7 +112,7 @@ function requiredAuthenticate(req, res, next) {
 
 // 로그인 선택 미들웨어
 function optionalAuthenticate(req, res, next) {
-  const token = req.cookies?.accessToken;
+  const { accessToken: token } = req.cookies;
   if (!token) {
     req.user = null;
     return next();
