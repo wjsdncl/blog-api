@@ -63,16 +63,26 @@ function generateTokens(userId) {
   return { accessToken, refreshToken };
 }
 
+const getCookies = (cookieString) => {
+  return cookieString.split("; ").reduce((acc, cookie) => {
+    const [key, value] = cookie.split("=");
+    acc[key] = value;
+    return acc;
+  }, {});
+};
+
 // 유저 인증 미들웨어
 function requiredAuthenticate(req, res, next) {
-  const token = req.cookies?.accessToken;
+  const cookies = getCookies(req.headers.cookie);
+  const token = cookies.accessToken;
+
   if (!token) return res.status(401).send({ message: "로그인이 필요합니다." });
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
       // 액세스 토큰이 만료된 경우
       if (err.name === "TokenExpiredError") {
-        const refreshToken = req.cookies?.refreshToken;
+        const refreshToken = cookies.refreshToken;
         if (!refreshToken) {
           return res.status(401).send({ message: "세션이 만료되었습니다. 재로그인 해주세요." });
         }
@@ -113,7 +123,9 @@ function requiredAuthenticate(req, res, next) {
 
 // 로그인 선택 미들웨어
 function optionalAuthenticate(req, res, next) {
-  const token = req.cookies?.accessToken;
+  const cookies = getCookies(req.headers.cookie);
+  const token = cookies.accessToken;
+
   if (!token) {
     req.user = null;
     return next();
@@ -189,7 +201,9 @@ app.post(
 app.post(
   "/auth/refresh",
   asyncHandler(async (req, res) => {
-    const { refreshToken } = req.cookies; // 쿠키에서 refreshToken 가져오기
+    const cookies = getCookies(req.headers.cookie);
+    const refreshToken = cookies.refreshToken;
+
     if (!refreshToken) {
       return res.status(401).send({ message: "리프래시 토큰이 없습니다." });
     }

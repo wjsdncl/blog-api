@@ -23,7 +23,6 @@ Authorization: Bearer yourAccessToken
 
 ### 내 정보 가져오기 (AccessToken 필요)
 GET http://localhost:8000/users/me
-Authorization: Bearer yourAccessToken
 
 ### 토큰 갱신 요청 (RefreshToken 필요)
 POST http://localhost:8000/auth/refresh
