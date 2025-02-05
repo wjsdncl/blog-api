@@ -2,7 +2,6 @@ import * as dotenv from "dotenv"; // 환경 변수 로드
 dotenv.config();
 
 import express from "express";
-import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import cors from "cors";
 import { getChoseong } from "es-hangul";
@@ -172,6 +171,16 @@ app.post(
     });
 
     res.send({ user });
+  })
+);
+
+// POST /auth/logout -> 로그아웃
+app.post(
+  "/auth/logout",
+  asyncHandler(async (req, res) => {
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+    res.send({ message: "로그아웃 되었습니다." });
   })
 );
 
