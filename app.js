@@ -40,6 +40,7 @@ app.use(
       "https://wjsdncl-dev-hub.vercel.app",
       "https://www.wjdalswo-dev.xyz",
     ],
+    credentials: true,
   })
 );
 app.use(express.json());
@@ -64,19 +65,55 @@ function generateTokens(userId) {
 
 // 유저 인증 미들웨어
 function requiredAuthenticate(req, res, next) {
-  const token = req.headers?.authorization?.split(" ")[1];
+  const token = req.cookies?.accessToken;
   if (!token) return res.status(401).send({ message: "로그인이 필요합니다." });
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(403).send({ message: "토큰이 유효하지 않거나 만료되었습니다." });
-    req.user = decoded;
-    next();
+    if (err) {
+      // 액세스 토큰이 만료된 경우
+      if (err.name === "TokenExpiredError") {
+        const refreshToken = req.cookies?.refreshToken;
+        if (!refreshToken) {
+          return res.status(401).send({ message: "세션이 만료되었습니다. 재로그인 해주세요." });
+        }
+
+        jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err, decoded) => {
+          if (err) {
+            return res.status(401).send({ message: "세션이 만료되었습니다. 재로그인 해주세요." });
+          }
+
+          const { accessToken: newAccess, refreshToken: newRefresh } = generateTokens(
+            decoded.userId
+          );
+
+          // 새로운 토큰을 쿠키에 설정
+          res.cookie("accessToken", newAccess, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+          });
+          res.cookie("refreshToken", newRefresh, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+          });
+
+          req.user = decoded;
+          next();
+        });
+      } else {
+        return res.status(403).send({ message: "토큰이 유효하지 않거나 만료되었습니다." });
+      }
+    } else {
+      req.user = decoded;
+      next();
+    }
   });
 }
 
 // 로그인 선택 미들웨어
 function optionalAuthenticate(req, res, next) {
-  const token = req.headers?.authorization?.split(" ")[1];
+  const token = req.cookies?.accessToken;
   if (!token) {
     req.user = null;
     return next();
@@ -121,7 +158,20 @@ app.post(
     if (!user) return res.status(401).send({ message: "사용자를 찾을 수 없습니다." });
 
     const { accessToken, refreshToken } = generateTokens(user.id);
-    res.send({ accessToken, refreshToken, user });
+    // JWT를 쿠키에 포함
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+    });
+    // refreshToken을 secure 쿠키로 전송
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+    });
+
+    res.send({ user });
   })
 );
 
@@ -129,16 +179,25 @@ app.post(
 app.post(
   "/auth/refresh",
   asyncHandler(async (req, res) => {
-    const { refreshToken } = req.body;
-    if (!refreshToken) return res.status(401).send({ message: "리프레시 토큰이 필요합니다." });
+    const { refreshToken } = req.cookies; // 쿠키에서 refreshToken 가져오기
+    if (!refreshToken) {
+      return res.status(401).send({ message: "리프래시 토큰이 없습니다." });
+    }
 
     jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err, decoded) => {
-      if (err)
-        return res.status(403).send({ message: "리프레시 토큰이 유효하지 않거나 만료되었습니다." });
+      if (err) return res.status(403).send({ message: "토큰이 유효하지 않습니다." });
+      const { accessToken: newAccess, refreshToken: newRefresh } = generateTokens(decoded.userId);
 
-      // 새로운 토큰 생성
-      const { accessToken, refreshToken: newRefreshToken } = generateTokens(decoded.userId);
-      res.send({ accessToken, refreshToken: newRefreshToken });
+      // JWT를 header에 포함
+      res.setHeader("Authorization", `Bearer ${newAccess}`);
+      // refreshToken을 secure 쿠키로 전송
+      res.cookie("refreshToken", newRefresh, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+      });
+
+      res.send({ message: "토큰이 갱신되었습니다." });
     });
   })
 );
