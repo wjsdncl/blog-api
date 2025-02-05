@@ -92,22 +92,18 @@ function optionalAuthenticate(req, res, next) {
 app.post(
   "/auth/signup",
   asyncHandler(async (req, res) => {
-    const { email, name, password } = req.body;
+    const { email, name } = req.body;
     assert({ email, name }, CreateUser);
 
     // 이메일 중복 확인
     const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) return res.status(409).send({ message: "이미 가입된 이메일입니다." });
-
-    // 비밀번호 암호화
-    const hashedPassword = await bcrypt.hash(password, 6);
+    if (existingUser) return res.status(409).send({ message: "이미 존재하는 사용자입니다." });
 
     // 유저 생성
     const newUser = await prisma.user.create({
       data: {
         email,
         name,
-        password: hashedPassword,
       },
     });
 
@@ -119,13 +115,10 @@ app.post(
 app.post(
   "/auth/login",
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    const { email } = req.body;
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(401).send({ message: "해당 이메일로 가입된 사용자가 없습니다." });
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) return res.status(401).send({ message: "비밀번호가 일치하지 않습니다." });
+    if (!user) return res.status(401).send({ message: "사용자를 찾을 수 없습니다." });
 
     const { accessToken, refreshToken } = generateTokens(user.id);
     res.send({ accessToken, refreshToken, user });
