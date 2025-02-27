@@ -2,7 +2,6 @@ import * as dotenv from "dotenv"; // 환경 변수 로드
 dotenv.config();
 
 import express from "express";
-import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import cors from "cors";
 import { getChoseong } from "es-hangul";
@@ -37,56 +36,183 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
+      "https://localhost:3000",
       "https://wjsdncl-dev-hub.vercel.app",
       "https://www.wjdalswo-dev.xyz",
+      "https://github.com/",
     ],
+    credentials: true,
   })
 );
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/* ===============================================================================================
+/
+/
+/                                        Auth Middleware
+/
+/
+=============================================================================================== */
 
 const JWT_SECRET = process.env.JWT_SECRET; // JWT 시크릿 키
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET; // RefreshToken을 위한 시크릿 키 설정
-
-/* ========================
-/
-/
-/       Auth API
-/
-/
-======================== */
 
 // JWT 토큰 생성 함수
 function generateTokens(userId) {
   const accessToken = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "3d" }); // AccessToken 3일 만료
   const refreshToken = jwt.sign({ userId }, JWT_REFRESH_SECRET, { expiresIn: "7d" }); // RefreshToken 7일 만료
-  return { accessToken, refreshToken };
+
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "none",
+  };
+
+  return { accessToken, refreshToken, cookieOptions };
 }
 
-// 유저 인증 미들웨어
-function requiredAuthenticate(req, res, next) {
-  const token = req.headers?.authorization?.split(" ")[1];
-  if (!token) return res.status(401).send({ message: "로그인이 필요합니다." });
+// 공통 인증 처리 함수
+function handleAuthentication(req, res, next, isRequired) {
+  const accessToken = req.cookies?.accessToken;
+  const refreshToken = req.cookies?.refreshToken;
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(403).send({ message: "토큰이 유효하지 않거나 만료되었습니다." });
-    req.user = decoded;
-    next();
-  });
-}
-
-// 로그인 선택 미들웨어
-function optionalAuthenticate(req, res, next) {
-  const token = req.headers?.authorization?.split(" ")[1];
-  if (!token) {
-    req.user = null;
-    return next();
+  if (!accessToken) {
+    if (isRequired) {
+      return res.status(401).send({ message: "로그인이 필요합니다." });
+    } else {
+      req.user = null;
+      return next();
+    }
   }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    req.user = err ? null : decoded;
-    next();
+  jwt.verify(accessToken, JWT_SECRET, (err, decoded) => {
+    if (!err) {
+      req.user = decoded;
+      return next();
+    }
+
+    // accessToken이 만료되었고 refreshToken이 있는 경우
+    if (err.name === "TokenExpiredError" && refreshToken) {
+      jwt.verify(refreshToken, JWT_REFRESH_SECRET, (refreshErr, refreshDecoded) => {
+        if (refreshErr) {
+          // refreshToken도 만료된 경우
+          res.clearCookie("accessToken");
+          res.clearCookie("refreshToken");
+
+          if (isRequired && refreshErr.name === "TokenExpiredError") {
+            return res.status(401).send({ message: "세션이 만료되었습니다. 다시 로그인해주세요." });
+          }
+
+          req.user = null;
+          return isRequired ? res.status(403).send({ message: "인증에 실패했습니다." }) : next();
+        }
+
+        // 새로운 토큰 발급
+        const {
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+          cookieOptions,
+        } = generateTokens(refreshDecoded.userId);
+
+        res.cookie("accessToken", newAccessToken, cookieOptions);
+        res.cookie("refreshToken", newRefreshToken, cookieOptions);
+
+        req.user = jwt.verify(newAccessToken, JWT_SECRET);
+        next();
+      });
+    } else {
+      // 다른 오류인 경우
+      req.user = null;
+      return isRequired ? res.status(403).send({ message: "인증에 실패했습니다." }) : next();
+    }
   });
 }
+
+// 필수 인증 미들웨어
+function requiredAuthenticate(req, res, next) {
+  handleAuthentication(req, res, next, true);
+}
+
+// 선택적 인증 미들웨어
+function optionalAuthenticate(req, res, next) {
+  handleAuthentication(req, res, next, false);
+}
+
+/* ===============================================================================================
+/
+/
+/                                        Auth API
+/
+/
+=============================================================================================== */
+
+// GitHub OAuth Configuration
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
+const GITHUB_CALLBACK_URL = process.env.GITHUB_CALLBACK_URL;
+
+// GET /auth/github -> GitHub OAuth 로그인
+app.get("/auth/github", (req, res) => {
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${GITHUB_CALLBACK_URL}`;
+  res.redirect(githubAuthUrl);
+});
+
+// GET /auth/github/callback -> GitHub OAuth 콜백 처리
+app.get(
+  "/auth/github/callback",
+  asyncHandler(async (req, res) => {
+    const { code } = req.query;
+
+    // GitHub access token 받기
+    const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        client_id: GITHUB_CLIENT_ID,
+        client_secret: GITHUB_CLIENT_SECRET,
+        code,
+      }),
+    });
+
+    const { access_token } = await tokenResponse.json();
+
+    // GitHub 사용자 정보 가져오기
+    const userResponse = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+      },
+    });
+
+    const githubUser = await userResponse.json();
+
+    // DB에서 사용자 찾기 또는 생성
+    let user = await prisma.user.findUnique({
+      where: { email: githubUser.email },
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: githubUser.email,
+          name: githubUser.name || githubUser.login,
+        },
+      });
+    }
+
+    // JWT 토큰 생성 및 쿠키 설정
+    const { accessToken, refreshToken, cookieOptions } = generateTokens(user.id);
+
+    res.cookie("accessToken", accessToken, cookieOptions);
+    res.cookie("refreshToken", refreshToken, cookieOptions);
+
+    // 프론트엔드로 리다이렉트
+    res.redirect(process.env.CLIENT_URL);
+  })
+);
 
 // POST /auth/signup -> 회원가입
 app.post(
@@ -120,62 +246,29 @@ app.post(
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(401).send({ message: "사용자를 찾을 수 없습니다." });
 
-    const { accessToken, refreshToken } = generateTokens(user.id);
+    const { accessToken, refreshToken, cookieOptions } = generateTokens(user.id);
+
+    res.cookie("accessToken", accessToken, cookieOptions);
+    res.cookie("refreshToken", refreshToken, cookieOptions);
+
     res.send({ accessToken, refreshToken, user });
   })
 );
 
-// POST /auth/refresh -> RefreshToken을 사용하여 AccessToken 갱신
-app.post(
-  "/auth/refresh",
-  asyncHandler(async (req, res) => {
-    const { refreshToken } = req.body;
-    if (!refreshToken) return res.status(401).send({ message: "리프레시 토큰이 필요합니다." });
+// POST /auth/logout -> 로그아웃
+app.post("/auth/logout", (req, res) => {
+  res.clearCookie("accessToken");
+  res.clearCookie("refreshToken");
+  res.send({ message: "로그아웃 되었습니다." });
+});
 
-    jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err, decoded) => {
-      if (err)
-        return res.status(403).send({ message: "리프레시 토큰이 유효하지 않거나 만료되었습니다." });
-
-      // 새로운 토큰 생성
-      const { accessToken, refreshToken: newRefreshToken } = generateTokens(decoded.userId);
-      res.send({ accessToken, refreshToken: newRefreshToken });
-    });
-  })
-);
-
-/* ========================
+/* ===============================================================================================
 /
 /
-/       User API
+/                                        User API
 /
 /
-======================== */
-
-// GET /users -> 모든 유저 정보를 가져옴
-app.get(
-  "/users",
-  requiredAuthenticate, // JWT 인증
-  asyncHandler(async (req, res) => {
-    const { offset = 0, limit = 10 } = req.query; // 페이지네이션을 위한 쿼리 파라미터
-
-    const users = await prisma.user.findMany({
-      skip: parseInt(offset),
-      take: parseInt(limit),
-      orderBy: { createdAt: "desc" }, // 최신 순으로 정렬
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: { select: { posts: true, comments: true } }, // 게시글 및 댓글 수 포함
-        posts: { select: { category: true, title: true, content: true } }, // 유저가 작성한 포스트 정보 포함
-      },
-    });
-
-    res.send(users);
-  })
-);
+=============================================================================================== */
 
 // GET /users/me -> accessToken을 사용하여 현재 유저 정보를 가져옴
 app.get(
@@ -184,30 +277,6 @@ app.get(
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-        isAdmin: true,
-        posts: {
-          select: {
-            _count: { select: { comments: true } },
-            category: true,
-            id: true,
-            title: true,
-            createdAt: true,
-          },
-        },
-        comments: {
-          select: {
-            id: true,
-            content: true,
-            createdAt: true,
-          },
-        },
-      },
     });
 
     if (!user) {
@@ -251,13 +320,13 @@ app.delete(
   })
 );
 
-/* ========================
+/* ===============================================================================================
 /
 /
-/       Post API
+/                                        Post API
 /
 /
-======================== */
+=============================================================================================== */
 
 // GET /posts -> 모든 포스트 정보를 가져옴
 app.get(
@@ -379,9 +448,9 @@ app.post(
     let slugBase = title
       .toLowerCase()
       .trim()
-      .replace(/-/g, "") // 하이픈 제거
+      .replace(/[^a-z0-9가-힣ㄱ-ㅎ\s]/g, "") // 특수문자 제거 (공백 유지)
       .replace(/\s+/g, "-") // 공백을 하이픈으로
-      .replace(/[^a-z0-9가-힣ㄱ-ㅎ-]/g, ""); // 특수문자 제거
+      .replace(/-+/g, "-"); // 연속된 하이픈을 하나로
 
     let slug = `${slugBase}`;
     while (await prisma.post.findUnique({ where: { slug } })) {
@@ -537,13 +606,13 @@ app.delete(
   })
 );
 
-/* ========================
+/* ===============================================================================================
 /
 /
-/       Comment API
+/                                        Comment API
 /
 /
-======================== */
+=============================================================================================== */
 
 // GET /comments -> 모든 댓글 정보를 가져옴
 app.get(
@@ -783,13 +852,13 @@ app.delete(
   })
 );
 
-/* ========================
+/* ===============================================================================================
 /
 /
-/       File Upload API
+/                                     Image Upload API
 /
 /
-======================== */
+=============================================================================================== */
 
 // Supabase 클라이언트 생성
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
@@ -878,13 +947,13 @@ app.post(
   })
 );
 
-/* ========================
+/* ===============================================================================================
 /
 /
-/       Portfolio API
+/                                     Project API
 /
 /
-======================== */
+=============================================================================================== */
 
 // GET /projects -> 모든 프로젝트 정보 가져오기
 app.get(
