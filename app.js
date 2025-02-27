@@ -5,6 +5,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import cors from "cors";
 import { getChoseong } from "es-hangul";
+import cookieParser from "cookie-parser";
 
 import multer from "multer";
 import sharp from "sharp";
@@ -46,6 +47,7 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 /* ===============================================================================================
 /
@@ -251,7 +253,7 @@ app.post(
     res.cookie("accessToken", accessToken, cookieOptions);
     res.cookie("refreshToken", refreshToken, cookieOptions);
 
-    res.send({ accessToken, refreshToken, user });
+    res.send({ user });
   })
 );
 
