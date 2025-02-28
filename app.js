@@ -213,6 +213,8 @@ app.get(
 
     // 프론트엔드로 리다이렉트
     res.redirect(process.env.CLIENT_URL);
+
+    res.status(200).send({ user });
   })
 );
 
