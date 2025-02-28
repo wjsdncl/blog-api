@@ -259,8 +259,15 @@ app.post(
 
 // POST /auth/logout -> 로그아웃
 app.post("/auth/logout", (req, res) => {
-  res.clearCookie("accessToken");
-  res.clearCookie("refreshToken");
+  // 쿠키 삭제 시 동일한 옵션 적용
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "none",
+  };
+
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
   res.send({ message: "로그아웃 되었습니다." });
 });
 
