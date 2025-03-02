@@ -202,7 +202,7 @@ app.get(
 
     // DB에서 사용자 찾기 또는 생성
     let user = await prisma.user.findUnique({
-      where: { email: primaryEmail },
+      where: { email: primaryEmail.email },
     });
 
     if (!user) {
