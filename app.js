@@ -166,6 +166,10 @@ app.get(
   asyncHandler(async (req, res) => {
     const { code } = req.query;
 
+    if (!code) {
+      return res.status(400).send({ message: "GitHub 코드를 전달받지 못했습니다." });
+    }
+
     // GitHub access token 받기
     const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
       method: "POST",
@@ -181,6 +185,10 @@ app.get(
     });
 
     const { access_token } = await tokenResponse.json();
+
+    if (!access_token) {
+      return res.status(401).send({ message: "GitHub 토큰을 가져올 수 없습니다." });
+    }
 
     // GitHub 사용자 정보 가져오기
     const userResponse = await fetch("https://api.github.com/user", {
@@ -198,7 +206,24 @@ app.get(
     const githubUser = await userResponse.json();
     const emails = await emailResponse.json();
 
-    const primaryEmail = emails.find((email) => email.primary && email.verified) || emails[0];
+    // GitHub 사용자 정보가 없는 경우
+    if (!githubUser) {
+      return res.status(401).send({ message: "GitHub 사용자 정보를 가져올 수 없습니다." });
+    }
+
+    let primaryEmail;
+
+    // 이메일 정보가 없는 경우
+    if (!emails || emails.length === 0) {
+      return res.status(401).send({ message: "GitHub 이메일 정보를 가져올 수 없습니다." });
+    } else {
+      // 기본 이메일 주소 찾기
+      primaryEmail = emails.find((email) => email.primary) || emails[0];
+
+      if (!primaryEmail) {
+        return res.status(401).send({ message: "GitHub 기본 이메일 정보를 찾을 수 없습니다." });
+      }
+    }
 
     // DB에서 사용자 찾기 또는 생성
     let user = await prisma.user.findUnique({
