@@ -149,7 +149,7 @@ export function asyncHandler(handler) {
       else {
         response = {
           success: false,
-          error: `서버 오류: ${DEBUG_MODE ? e.message : "내부 서버 오류가 발생했습니다"}`,
+          error: `서버 오류: ${e.message}`,
         };
         res.status(500).json(response);
       }
