@@ -156,7 +156,7 @@ const GITHUB_CALLBACK_URL = process.env.GITHUB_CALLBACK_URL;
 
 // GET /auth/github -> GitHub OAuth 로그인
 app.get("/auth/github", (req, res) => {
-  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${GITHUB_CALLBACK_URL}`;
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${GITHUB_CALLBACK_URL}&scope=user:email`;
   res.status(200).send({ url: githubAuthUrl });
 });
 
@@ -188,12 +188,21 @@ app.get(
         Authorization: `Bearer ${access_token}`,
       },
     });
+    // GitHub 이메일 정보 가져오기
+    const emailResponse = await fetch("https://api.github.com/user/emails", {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+      },
+    });
 
     const githubUser = await userResponse.json();
+    const emails = await emailResponse.json();
+
+    const primaryEmail = emails.find((email) => email.primary && email.verified) || emails[0];
 
     // DB에서 사용자 찾기 또는 생성
     let user = await prisma.user.findUnique({
-      where: { email: githubUser.email },
+      where: { email: primaryEmail },
     });
 
     if (!user) {
