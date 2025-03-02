@@ -157,7 +157,7 @@ const GITHUB_CALLBACK_URL = process.env.GITHUB_CALLBACK_URL;
 // GET /auth/github -> GitHub OAuth 로그인
 app.get("/auth/github", (req, res) => {
   const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${GITHUB_CALLBACK_URL}&scope=user:email`;
-  res.status(200).send({ url: githubAuthUrl });
+  res.redirect(githubAuthUrl);
 });
 
 // GET /auth/github/callback -> GitHub OAuth 콜백 처리
