@@ -85,9 +85,9 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7일
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      sameSite: "none",
     },
-    name: "sid", // 기본 connect.sid 대신 사용자 정의 이름 사용
+    name: "sid",
   })
 );
 
