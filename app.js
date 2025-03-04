@@ -2,10 +2,12 @@ import * as dotenv from "dotenv"; // 환경 변수 로드
 dotenv.config();
 
 import express from "express";
-import jwt from "jsonwebtoken";
 import cors from "cors";
 import { getChoseong } from "es-hangul";
 import cookieParser from "cookie-parser";
+import session from "express-session";
+import pgSession from "connect-pg-simple";
+import { Pool } from "pg";
 
 import multer from "multer";
 import sharp from "sharp";
@@ -13,7 +15,7 @@ import path from "path";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { assert, max } from "superstruct"; // 데이터 검증을 위한 라이브러리
+import { assert } from "superstruct"; // 데이터 검증을 위한 라이브러리
 import {
   CreateUser,
   UpdateUser,
@@ -57,100 +59,48 @@ app.use(cookieParser());
 /
 =============================================================================================== */
 
-const JWT_SECRET = process.env.JWT_SECRET; // JWT 시크릿 키
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET; // RefreshToken을 위한 시크릿 키 설정
+// PostgreSQL 연결 설정
+const pgPool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
-const DEFAULT_COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "none",
-  path: "/",
-};
+// 세션 스토어 설정
+const PostgresStore = pgSession(session);
+const sessionStore = new PostgresStore({
+  pool: pgPool,
+  tableName: "Session", // Prisma에서 정의한 테이블 이름과 일치해야 함
+  createTableIfMissing: true,
+});
 
-// JWT 토큰 생성 함수
-function generateTokens(userId) {
-  const accessToken = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "3d" }); // AccessToken 3일 만료
-  const refreshToken = jwt.sign({ userId }, JWT_REFRESH_SECRET, { expiresIn: "7d" }); // RefreshToken 7일 만료
-
-  const cookieOptions = {
-    accessToken: {
-      ...DEFAULT_COOKIE_OPTIONS,
-      maxAge: 1000 * 60 * 60 * 24 * 3, // 3일
-    },
-    refreshToken: {
-      ...DEFAULT_COOKIE_OPTIONS,
+// 세션 미들웨어 설정
+app.use(
+  session({
+    store: sessionStore,
+    secret: process.env.SESSION_SECRET || "keyboard cat",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7일
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     },
-  };
+    name: "sid", // 기본 connect.sid 대신 사용자 정의 이름 사용
+  })
+);
 
-  return { accessToken, refreshToken, cookieOptions };
-}
-
-// 공통 인증 처리 함수
-function handleAuthentication(req, res, next, isRequired) {
-  const accessToken = req.cookies?.accessToken;
-  const refreshToken = req.cookies?.refreshToken;
-
-  if (!accessToken) {
-    if (isRequired) {
-      return res.status(401).send({ message: "로그인이 필요합니다." });
-    } else {
-      req.user = null;
-      return next();
-    }
-  }
-
-  jwt.verify(accessToken, JWT_SECRET, (err, decoded) => {
-    if (!err) {
-      req.user = decoded;
-      return next();
-    }
-
-    // accessToken이 만료되었고 refreshToken이 있는 경우
-    if (err.name === "TokenExpiredError" && refreshToken) {
-      jwt.verify(refreshToken, JWT_REFRESH_SECRET, (refreshErr, refreshDecoded) => {
-        if (refreshErr) {
-          // refreshToken도 만료된 경우
-          res.clearCookie("accessToken");
-          res.clearCookie("refreshToken");
-
-          if (isRequired && refreshErr.name === "TokenExpiredError") {
-            return res.status(401).send({ message: "세션이 만료되었습니다. 다시 로그인해주세요." });
-          }
-
-          req.user = null;
-          return isRequired ? res.status(403).send({ message: "인증에 실패했습니다." }) : next();
-        }
-
-        // 새로운 토큰 발급
-        const {
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-          cookieOptions,
-        } = generateTokens(refreshDecoded.userId);
-
-        res.cookie("accessToken", newAccessToken, cookieOptions.accessToken);
-        res.cookie("refreshToken", newRefreshToken, cookieOptions.refreshToken);
-
-        req.user = jwt.verify(newAccessToken, JWT_SECRET);
-        next();
-      });
-    } else {
-      // 다른 오류인 경우
-      req.user = null;
-      return isRequired ? res.status(403).send({ message: "인증에 실패했습니다." }) : next();
-    }
-  });
-}
-
-// 필수 인증 미들웨어
+// 기존 JWT 관련 코드 제거하고 세션 기반 인증 미들웨어로 대체
 function requiredAuthenticate(req, res, next) {
-  handleAuthentication(req, res, next, true);
+  if (!req.session.userId) {
+    return res.status(401).send({ message: "로그인이 필요합니다." });
+  }
+  next();
 }
 
-// 선택적 인증 미들웨어
 function optionalAuthenticate(req, res, next) {
-  handleAuthentication(req, res, next, false);
+  // 세션이 있으면 req.user에 userId 설정, 없으면 null
+  req.user = req.session.userId ? { userId: req.session.userId } : null;
+  next();
 }
 
 /* ===============================================================================================
@@ -251,11 +201,8 @@ app.get(
       });
     }
 
-    // JWT 토큰 생성 및 쿠키 설정
-    const { accessToken, refreshToken, cookieOptions } = generateTokens(user.id);
-
-    res.cookie("accessToken", accessToken, cookieOptions.accessToken);
-    res.cookie("refreshToken", refreshToken, cookieOptions.refreshToken);
+    // 세션에 사용자 ID 저장
+    req.session.userId = user.id;
 
     res.status(200).send({ user });
   })
@@ -293,10 +240,7 @@ app.post(
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(401).send({ message: "사용자를 찾을 수 없습니다." });
 
-    const { accessToken, refreshToken, cookieOptions } = generateTokens(user.id);
-
-    res.cookie("accessToken", accessToken, cookieOptions.accessToken);
-    res.cookie("refreshToken", refreshToken, cookieOptions.refreshToken);
+    req.session.userId = user.id;
 
     res.send({ user });
   })
@@ -304,9 +248,14 @@ app.post(
 
 // POST /auth/logout -> 로그아웃
 app.post("/auth/logout", (req, res) => {
-  res.clearCookie("accessToken", DEFAULT_COOKIE_OPTIONS);
-  res.clearCookie("refreshToken", DEFAULT_COOKIE_OPTIONS);
-  res.send({ message: "로그아웃 되었습니다." });
+  // 세션 파기
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).send({ message: "로그아웃 중 오류가 발생했습니다." });
+    }
+    res.clearCookie("sid"); // 세션 쿠키 삭제
+    res.send({ message: "로그아웃 되었습니다." });
+  });
 });
 
 /* ===============================================================================================
@@ -323,7 +272,7 @@ app.get(
   requiredAuthenticate,
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({
-      where: { id: req.user.userId },
+      where: { id: req.session.userId },
     });
 
     if (!user) {
@@ -532,7 +481,7 @@ app.post(
   requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const userId = req.user.userId;
+    const userId = req.session.userId;
     const postId = parseInt(id);
 
     assert({ userId, postId }, LikePost); // 유효성 검사
@@ -790,7 +739,7 @@ app.post(
   requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const userId = req.user.userId;
+    const userId = req.session.userId;
     const commentId = parseInt(id);
 
     assert({ userId, commentId }, LikeComment); // 유효성 검사
