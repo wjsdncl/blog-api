@@ -91,13 +91,3 @@ model Project {
 
   @@index([startDate, endDate])
 }
-
-model Session {
-  id        String   @id
-  sid       String   @unique
-  data      String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@index([expiresAt])
-}

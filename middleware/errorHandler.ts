@@ -68,7 +68,11 @@ export function asyncHandler(handler) {
           case "P2002":
             response = {
               success: false,
-              error: `중복된 데이터 오류: ${e.meta?.target?.join(", ") || "알 수 없는 필드"}`,
+              error: `중복된 데이터 오류: ${
+                Array.isArray(e.meta?.target)
+                  ? e.meta.target.join(", ")
+                  : e.meta?.target || "알 수 없는 필드"
+              }`,
             };
             res.status(409).json(response);
             break;
