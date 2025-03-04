@@ -68,10 +68,9 @@ const pgPool = new Pool({
 });
 
 // 세션 스토어 설정
-const PostgresStore = pgSession(session);
-const sessionStore = new PostgresStore({
+const sessionStore = new pgSession({
   pool: pgPool,
-  tableName: "Session", // Prisma에서 정의한 테이블 이름과 일치해야 함
+  tableName: "Session",
   createTableIfMissing: true,
 });
 
