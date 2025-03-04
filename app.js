@@ -67,8 +67,6 @@ const DEFAULT_COOKIE_OPTIONS = {
   path: "/",
 };
 
-import { Request, Response, NextFunction } from "express";
-
 // JWT 토큰 생성 함수
 function generateTokens(userId) {
   const accessToken = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "3d" }); // AccessToken 3일 만료
@@ -78,7 +76,7 @@ function generateTokens(userId) {
 }
 
 // 공통 인증 처리 함수
-function handleAuthentication() {
+function handleAuthentication(req, res, next, isRequired) {
   const authHeader = req.headers.authorization;
   const refreshToken = req.headers["x-refresh-token"];
 
