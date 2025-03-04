@@ -13,7 +13,7 @@ import path from "path";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { assert } from "superstruct"; // 데이터 검증을 위한 라이브러리
+import { assert, max } from "superstruct"; // 데이터 검증을 위한 라이브러리
 import {
   CreateUser,
   UpdateUser,
@@ -65,10 +65,21 @@ function generateTokens(userId) {
   const accessToken = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "3d" }); // AccessToken 3일 만료
   const refreshToken = jwt.sign({ userId }, JWT_REFRESH_SECRET, { expiresIn: "7d" }); // RefreshToken 7일 만료
 
-  const cookieOptions = {
+  const defaultCookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "none",
+  };
+
+  const cookieOptions = {
+    accessToken: {
+      ...defaultCookieOptions,
+      maxAge: 1000 * 60 * 60 * 24 * 3, // 3일
+    },
+    refreshToken: {
+      ...defaultCookieOptions,
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7일
+    },
   };
 
   return { accessToken, refreshToken, cookieOptions };
@@ -117,8 +128,8 @@ function handleAuthentication(req, res, next, isRequired) {
           cookieOptions,
         } = generateTokens(refreshDecoded.userId);
 
-        res.cookie("accessToken", newAccessToken, cookieOptions);
-        res.cookie("refreshToken", newRefreshToken, cookieOptions);
+        res.cookie("accessToken", newAccessToken, cookieOptions.accessToken);
+        res.cookie("refreshToken", newRefreshToken, cookieOptions.refreshToken);
 
         req.user = jwt.verify(newAccessToken, JWT_SECRET);
         next();
@@ -242,8 +253,8 @@ app.get(
     // JWT 토큰 생성 및 쿠키 설정
     const { accessToken, refreshToken, cookieOptions } = generateTokens(user.id);
 
-    res.cookie("accessToken", accessToken, cookieOptions);
-    res.cookie("refreshToken", refreshToken, cookieOptions);
+    res.cookie("accessToken", accessToken, cookieOptions.accessToken);
+    res.cookie("refreshToken", refreshToken, cookieOptions.refreshToken);
 
     res.status(200).send({ user });
   })
@@ -283,8 +294,8 @@ app.post(
 
     const { accessToken, refreshToken, cookieOptions } = generateTokens(user.id);
 
-    res.cookie("accessToken", accessToken, cookieOptions);
-    res.cookie("refreshToken", refreshToken, cookieOptions);
+    res.cookie("accessToken", accessToken, cookieOptions.accessToken);
+    res.cookie("refreshToken", refreshToken, cookieOptions.refreshToken);
 
     res.send({ user });
   })
