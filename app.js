@@ -60,24 +60,25 @@ app.use(cookieParser());
 const JWT_SECRET = process.env.JWT_SECRET; // JWT 시크릿 키
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET; // RefreshToken을 위한 시크릿 키 설정
 
+const DEFAULT_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "none",
+  path: "/",
+};
+
 // JWT 토큰 생성 함수
 function generateTokens(userId) {
   const accessToken = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "3d" }); // AccessToken 3일 만료
   const refreshToken = jwt.sign({ userId }, JWT_REFRESH_SECRET, { expiresIn: "7d" }); // RefreshToken 7일 만료
 
-  const defaultCookieOptions = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "none",
-  };
-
   const cookieOptions = {
     accessToken: {
-      ...defaultCookieOptions,
+      ...DEFAULT_COOKIE_OPTIONS,
       maxAge: 1000 * 60 * 60 * 24 * 3, // 3일
     },
     refreshToken: {
-      ...defaultCookieOptions,
+      ...DEFAULT_COOKIE_OPTIONS,
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7일
     },
   };
@@ -303,15 +304,8 @@ app.post(
 
 // POST /auth/logout -> 로그아웃
 app.post("/auth/logout", (req, res) => {
-  // 쿠키 삭제 시 동일한 옵션 적용
-  const cookieOptions = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "none",
-  };
-
-  res.clearCookie("accessToken", cookieOptions);
-  res.clearCookie("refreshToken", cookieOptions);
+  res.clearCookie("accessToken", DEFAULT_COOKIE_OPTIONS);
+  res.clearCookie("refreshToken", DEFAULT_COOKIE_OPTIONS);
   res.send({ message: "로그아웃 되었습니다." });
 });
 
