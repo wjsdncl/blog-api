@@ -48,6 +48,8 @@ app.use(
       "https://github.com/",
     ],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 app.use(express.json());
@@ -82,10 +84,11 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7일
       sameSite: "none",
+      path: "/",
     },
     name: "sid",
   })
