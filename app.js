@@ -6,8 +6,8 @@ import cors from "cors";
 import { getChoseong } from "es-hangul";
 import cookieParser from "cookie-parser";
 import session from "express-session";
-import pgSession from "connect-pg-simple";
-import { Pool } from "pg";
+import pgSessionFactory from "connect-pg-simple";
+import pg from "pg";
 
 import multer from "multer";
 import sharp from "sharp";
@@ -32,6 +32,9 @@ import crypto from "crypto"; // 랜덤 문자열 생성을 위해 crypto 모듈 
 import { prisma } from "./lib/prismaClient.js"; // PrismaClient 인스턴스
 
 import { asyncHandler } from "./middleware/errorHandler.js"; // 에러 핸들러 미들웨어
+
+const pgSession = pgSessionFactory(session);
+const { Pool } = pg;
 
 const app = express();
 
