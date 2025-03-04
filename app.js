@@ -69,12 +69,8 @@ const DEFAULT_COOKIE_OPTIONS = {
 
 import { Request, Response, NextFunction } from "express";
 
-interface DecodedToken {
-  userId: string;
-}
-
 // JWT 토큰 생성 함수
-function generateTokens(userId: string): { accessToken: string; refreshToken: string } {
+function generateTokens(userId) {
   const accessToken = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "3d" }); // AccessToken 3일 만료
   const refreshToken = jwt.sign({ userId }, JWT_REFRESH_SECRET, { expiresIn: "7d" }); // RefreshToken 7일 만료
 
@@ -82,14 +78,9 @@ function generateTokens(userId: string): { accessToken: string; refreshToken: st
 }
 
 // 공통 인증 처리 함수
-function handleAuthentication(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-  isRequired: boolean
-): void {
+function handleAuthentication() {
   const authHeader = req.headers.authorization;
-  const refreshToken = req.headers["x-refresh-token"] as string;
+  const refreshToken = req.headers["x-refresh-token"];
 
   if (!authHeader) {
     if (isRequired) {
@@ -105,13 +96,13 @@ function handleAuthentication(
   const accessToken = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(accessToken, JWT_SECRET) as DecodedToken;
+    const decoded = jwt.verify(accessToken, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError && refreshToken) {
       try {
-        const refreshDecoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as DecodedToken;
+        const refreshDecoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
         const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(
           refreshDecoded.userId
         );
@@ -119,7 +110,7 @@ function handleAuthentication(
         res.setHeader("Authorization", `Bearer ${newAccessToken}`);
         res.setHeader("X-Refresh-Token", newRefreshToken);
 
-        req.user = jwt.verify(newAccessToken, JWT_SECRET) as DecodedToken;
+        req.user = jwt.verify(newAccessToken, JWT_SECRET);
         next();
       } catch (refreshErr) {
         if (isRequired) {
@@ -899,10 +890,7 @@ app.delete(
 =============================================================================================== */
 
 // Supabase 클라이언트 생성
-const supabase = createClient(
-  process.env.SUPABASE_URL as string,
-  process.env.SUPABASE_ANON_KEY as string
-);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 // 허용된 이미지 파일 형식
 const ALLOWED_MIME_TYPES = {
