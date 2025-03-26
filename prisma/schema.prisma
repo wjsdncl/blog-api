@@ -33,6 +33,7 @@ model Post {
   userId        String
   slug          String    @unique
   choseongTitle String
+  isPrivate     Boolean   @default(false)
   comments      Comment[]
   Like          Like[]
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -367,6 +367,7 @@ app.delete(
 // GET /posts -> 모든 포스트 정보를 가져옴
 app.get(
   "/posts",
+  optionalAuthenticate,
   asyncHandler(async (req, res) => {
     const {
       offset = 0,
@@ -392,6 +393,9 @@ app.get(
         orderBy = { createdAt: "desc" };
     }
 
+    const userId = req.user?.userId;
+    const isAdmin = req.user?.isAdmin;
+
     // 검색 조건 설정
     const where = {
       ...(category && { category }),
@@ -402,17 +406,28 @@ app.get(
           mode: "insensitive",
         },
       }),
+      // 비공개 글 필터링:
+      // - 관리자는 모든 글을 볼 수 있음
+      // - 로그인한 사용자는 자신의 글(비공개 포함) + 타인의 공개 글만 볼 수 있음
+      // - 비로그인 사용자는 공개 글만 볼 수 있음
+      ...(!isAdmin && {
+        ...(!userId
+          ? { isPrivate: false }
+          : {
+              OR: [{ userId: userId }, { isPrivate: false }],
+            }),
+      }),
     };
 
     // 비동기 작업들을 병렬로 실행
     const [totalPosts, allCategoryCounts, posts] = await Promise.all([
-      // 전체 포스트 개수 계산
-      prisma.post.count(),
+      prisma.post.count({ where }),
 
       // 카테고리 카운트 계산
       prisma.post.groupBy({
         by: ["category"],
         _count: { category: true },
+        where,
       }),
 
       // 포스트 가져오기
@@ -477,7 +492,7 @@ app.post(
   "/posts",
   requiredAuthenticate, // JWT 인증
   asyncHandler(async (req, res) => {
-    const { title, content, userId, coverImg, category, tags = [] } = req.body;
+    const { title, content, userId, coverImg, category, tags = [], isPrivate = false } = req.body;
     assert(req.body, CreatePost);
 
     // 고유한 슬러그 생성
@@ -504,6 +519,7 @@ app.post(
         coverImg: coverImg === "" ? null : coverImg,
         category: category === "" ? null : category,
         tags,
+        isPrivate,
         user: { connect: { id: userId } },
       },
       include: {
