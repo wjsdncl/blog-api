@@ -152,9 +152,17 @@ const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const GITHUB_CALLBACK_URL = process.env.GITHUB_CALLBACK_URL;
 
+const GITHUB_CLIENT_ID_DEV = process.env.GITHUB_CLIENT_ID_DEV;
+const GITHUB_CLIENT_SECRET_DEV = process.env.GITHUB_CLIENT_SECRET_DEV;
+const GITHUB_CALLBACK_URL_DEV = process.env.GITHUB_CALLBACK_URL_DEV;
+
 // GET /auth/github -> GitHub OAuth 로그인
 app.get("/auth/github", (req, res) => {
-  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${GITHUB_CALLBACK_URL}&scope=user:email`;
+  const isDev = req.headers.origin === "https://localhost:3000";
+
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${
+    isDev ? GITHUB_CLIENT_ID_DEV : GITHUB_CLIENT_ID
+  }&redirect_uri=${isDev ? GITHUB_CALLBACK_URL_DEV : GITHUB_CALLBACK_URL}&scope=user:email`;
   res.redirect(githubAuthUrl);
 });
 
@@ -163,6 +171,7 @@ app.get(
   "/auth/github/callback",
   asyncHandler(async (req, res) => {
     const { code } = req.query;
+    const isDev = req.headers.origin === "https://localhost:3000";
 
     if (!code) {
       return res.status(400).send({ message: "GitHub 코드를 전달받지 못했습니다." });
@@ -176,8 +185,8 @@ app.get(
         Accept: "application/json",
       },
       body: JSON.stringify({
-        client_id: GITHUB_CLIENT_ID,
-        client_secret: GITHUB_CLIENT_SECRET,
+        client_id: isDev ? GITHUB_CLIENT_ID_DEV : GITHUB_CLIENT_ID,
+        client_secret: isDev ? GITHUB_CLIENT_SECRET_DEV : GITHUB_CLIENT_SECRET,
         code,
       }),
     });
