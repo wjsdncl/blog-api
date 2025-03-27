@@ -421,13 +421,14 @@ app.get(
 
     // 비동기 작업들을 병렬로 실행
     const [totalPosts, allCategoryCounts, posts] = await Promise.all([
-      prisma.post.count({ where }),
+      // 항상 모든 공개 게시글 수를 계산
+      prisma.post.count({ where: { isPrivate: false } }),
 
-      // 카테고리 카운트 계산
+      // 항상 모든 공개 게시글의 카테고리 카운트 계산
       prisma.post.groupBy({
         by: ["category"],
         _count: { category: true },
-        where,
+        where: { isPrivate: false },
       }),
 
       // 포스트 가져오기
