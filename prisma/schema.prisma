@@ -81,6 +81,7 @@ model Project {
   startDate   DateTime
   endDate     DateTime?
   description String
+  images      String[]
   summary     String[]
   techStack   String[]
   githubLink  String?   @db.VarChar(2083)
