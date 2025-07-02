@@ -19,17 +19,19 @@ import uploadRoutes from "./routes/upload.js";
 const app = express();
 
 // 보안 미들웨어
-app.use(helmet({
-  crossOriginEmbedderPolicy: false,
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
     },
-  },
-}));
+  })
+);
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -70,8 +72,8 @@ app.use(cookieParser());
 // 요청 로깅 미들웨어
 app.use((req, res, next) => {
   const start = Date.now();
-  
-  res.on('finish', () => {
+
+  res.on("finish", () => {
     const duration = Date.now() - start;
     logger.info("HTTP Request", {
       method: req.method,
@@ -79,10 +81,10 @@ app.use((req, res, next) => {
       statusCode: res.statusCode,
       duration: `${duration}ms`,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
   });
-  
+
   next();
 });
 
@@ -100,7 +102,7 @@ app.get("/health", (req, res) => {
     success: true,
     message: "Server is healthy",
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
   });
 });
 
@@ -120,14 +122,12 @@ app.use((err, req, res, next) => {
     stack: err.stack,
     url: req.url,
     method: req.method,
-    ip: req.ip
+    ip: req.ip,
   });
 
   res.status(500).json({
     success: false,
-    error: process.env.NODE_ENV === "production" 
-      ? "서버 내부 오류가 발생했습니다." 
-      : err.message,
+    error: process.env.NODE_ENV === "production" ? "서버 내부 오류가 발생했습니다." : err.message,
   });
 });
 
@@ -136,19 +136,19 @@ app.listen(config.port, () => {
   logger.info(`Server started`, {
     port: config.port,
     environment: config.nodeEnv,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
   console.log(`Server is running on http://localhost:${config.port}`);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
+process.on("SIGTERM", () => {
+  logger.info("SIGTERM received, shutting down gracefully");
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
-  logger.info('SIGINT received, shutting down gracefully');
+process.on("SIGINT", () => {
+  logger.info("SIGINT received, shutting down gracefully");
   process.exit(0);
 });
 

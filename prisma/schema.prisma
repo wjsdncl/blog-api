@@ -37,6 +37,11 @@ model Post {
   comments      Comment[]
   Like          Like[]
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt, category])
+  @@index([userId, isPrivate])
+  @@index([slug])
+  @@index([choseongTitle])
 }
 
 model Like {
@@ -63,6 +68,8 @@ model Comment {
   user            User?         @relation(fields: [userId], references: [id])
   CommentLike     CommentLike[]
 
+  @@index([postId, createdAt])
+  @@index([userId])
   @@index([parentCommentId])
 }
 
