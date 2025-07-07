@@ -42,7 +42,7 @@ router.patch(
     const { id } = req.params;
 
     // 권한 확인: 본인 또는 관리자만 수정 가능
-    if (req.user.userId !== id && !req.user.isAdmin) {
+    if (req.user.userId !== id && !req.user.isOwner) {
       logger.warn("Unauthorized user update attempt", {
         requesterId: req.user.userId,
         targetId: id,
@@ -75,7 +75,7 @@ router.delete(
     const { id } = req.params;
 
     // 권한 확인: 본인 또는 관리자만 삭제 가능
-    if (req.user.userId !== id && !req.user.isAdmin) {
+    if (req.user.userId !== id && !req.user.isOwner) {
       logger.warn("Unauthorized user deletion attempt", {
         requesterId: req.user.userId,
         targetId: id,

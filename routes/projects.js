@@ -1,133 +1,157 @@
-import express from "express";
-import { prisma } from "../lib/prismaClient.js";
-import { asyncHandler } from "../middleware/errorHandler.js";
-import { logger } from "../utils/logger.js";
+import express from 'express';
+import { prisma } from '../lib/prismaClient.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
+import { requiredAuthenticate, optionalAuthenticate } from '../middleware/auth.js';
+import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
-// GET /projects -> 모든 프로젝트 정보 가져오기
+const createSlug = (text) =>
+  text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9가-힣ㄱ-ㅎ\s]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+
+// GET /projects -> 모든 프로젝트 정보를 가져옴
 router.get(
-  "/",
+  '/',
+  optionalAuthenticate,
   asyncHandler(async (req, res) => {
-    const { offset = 0, limit = 10, isPersonal } = req.query;
+    const { category: categorySlug, tag: tagSlug } = req.query;
+    const isOwner = req.user?.isOwner;
 
-    const where = {};
-    if (isPersonal !== undefined) {
-      where.isPersonal = isPersonal === "true";
-    }
+    const where = {
+      ...(categorySlug && { category: { slug: categorySlug } }),
+      ...(tagSlug && { tags: { some: { slug: tagSlug } } }),
+      ...(!isOwner && { isActive: true }),
+    };
 
-    const [projects, totalCount] = await Promise.all([
-      prisma.project.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: parseInt(offset),
-        take: parseInt(limit),
-      }),
-      prisma.project.count({ where }),
-    ]);
-
-    logger.info("Projects fetched", { count: projects.length, totalCount });
-
-    res.json({
-      success: true,
-      data: projects,
-      meta: {
-        pagination: {
-          offset: parseInt(offset),
-          limit: parseInt(limit),
-          total: totalCount,
-        },
-      },
+    const projects = await prisma.project.findMany({
+      where,
+      orderBy: { priority: 'desc' },
+      include: { category: true, tags: true, techStack: true },
     });
+    res.json({ success: true, data: projects });
   })
 );
 
-// GET /projects/:id -> 특정 프로젝트 정보 가져오기
+// GET /projects/:slug -> 특정 프로젝트 정보를 가져옴
 router.get(
-  "/:id",
+  '/:slug',
   asyncHandler(async (req, res) => {
-    const { id } = req.params;
-
+    const { slug } = req.params;
     const project = await prisma.project.findUniqueOrThrow({
-      where: { id: Number(id) },
+      where: { slug },
+      include: { category: true, tags: true, techStack: true, links: true },
     });
-
-    logger.info("Project viewed", { projectId: project.id });
-
-    res.json({
-      success: true,
-      data: project,
-    });
+    res.json({ success: true, data: project });
   })
 );
 
-// POST /projects -> 새로운 프로젝트 생성
+// POST /projects -> 새 프로젝트 생성
 router.post(
-  "/",
+  '/',
+  requiredAuthenticate,
   asyncHandler(async (req, res) => {
-    const { title, isPersonal, startDate, endDate, description, images, content, summary, techStack, githubLink, projectLink } = req.body;
+    if (!req.user.isOwner) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+    const { title, categoryId, tags, techStack, links, ...rest } = req.body;
+
+    const slug = createSlug(title);
 
     const newProject = await prisma.project.create({
       data: {
+        ...rest,
         title,
-        isPersonal,
-        startDate: new Date(startDate),
-        endDate: endDate ? new Date(endDate) : null,
-        description,
-        images,
-        content,
-        summary,
-        techStack,
-        githubLink,
-        projectLink,
+        slug,
+        ...(categoryId && { category: { connect: { id: categoryId } } }),
+        ...(tags && {
+          tags: {
+            connectOrCreate: tags.map((tag) => ({
+              where: { name: tag },
+              create: { name: tag, slug: createSlug(tag) },
+            })),
+          },
+        }),
+        ...(techStack && {
+          techStack: {
+            connectOrCreate: techStack.map((tech) => ({
+              where: { name: tech },
+              create: { name: tech },
+            })),
+          },
+        }),
+        ...(links && { links: { create: links } }),
       },
     });
-
-    logger.info("Project created", { projectId: newProject.id, title });
-
-    res.status(201).json({
-      success: true,
-      data: newProject,
-    });
+    logger.info('Project created', { projectId: newProject.id });
+    res.status(201).json({ success: true, data: newProject });
   })
 );
 
-// PATCH /projects/:id -> 특정 프로젝트 정보 수정
+// PATCH /projects/:id -> 프로젝트 수정
 router.patch(
-  "/:id",
+  '/:id',
+  requiredAuthenticate,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
+    if (!req.user.isOwner) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+    const { title, categoryId, tags, techStack, links, ...rest } = req.body;
+
+    let slug;
+    if (title) {
+      slug = createSlug(title);
+    }
 
     const updatedProject = await prisma.project.update({
-      where: { id: Number(id) },
+      where: { id: parseInt(id) },
       data: {
-        ...req.body,
-        ...(req.body.startDate && { startDate: new Date(req.body.startDate) }),
-        ...(req.body.endDate && { endDate: new Date(req.body.endDate) }),
+        ...rest,
+        ...(title && { title }),
+        ...(slug && { slug }),
+        ...(categoryId && { category: { connect: { id: categoryId } } }),
+        ...(tags && {
+          tags: {
+            set: [],
+            connectOrCreate: tags.map((tag) => ({
+              where: { name: tag },
+              create: { name: tag, slug: createSlug(tag) },
+            })),
+          },
+        }),
+        ...(techStack && {
+          techStack: {
+            set: [],
+            connectOrCreate: techStack.map((tech) => ({
+              where: { name: tech },
+              create: { name: tech },
+            })),
+          },
+        }),
+        ...(links && { links: { deleteMany: {}, create: links } }),
       },
     });
-
-    logger.info("Project updated", { projectId: Number(id) });
-
-    res.json({
-      success: true,
-      data: updatedProject,
-    });
+    logger.info('Project updated', { projectId: updatedProject.id });
+    res.json({ success: true, data: updatedProject });
   })
 );
 
-// DELETE /projects/:id -> 특정 프로젝트 삭제
+// DELETE /projects/:id -> 프로젝트 삭제
 router.delete(
-  "/:id",
+  '/:id',
+  requiredAuthenticate,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-
-    await prisma.project.delete({
-      where: { id: Number(id) },
-    });
-
-    logger.info("Project deleted", { projectId: Number(id) });
-
+    if (!req.user.isOwner) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+    await prisma.project.delete({ where: { id: parseInt(id) } });
+    logger.info('Project deleted', { projectId: id });
     res.status(204).send();
   })
 );
