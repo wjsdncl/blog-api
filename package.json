@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@prisma/client": "^6.2.1",
+    "@prisma/client": "^6.11.1",
     "@supabase/supabase-js": "^2.47.7",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -13,18 +13,22 @@
     "is-uuid": "^1.0.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
-    "sharp": "^0.33.6",
-    "superstruct": "^2.0.3",
+    "pg": "^8.16.3",
+    "sharp": "^0.33.5",
+    "superstruct": "^1.0.4",
     "winston": "^3.17.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9",
-    "prisma": "^6.2.1"
+    "prisma": "^6.11.1"
   },
   "type": "module",
   "scripts": {
     "dev": "nodemon app.js",
-    "start": "node app.js"
+    "start": "node app.js",
+    "db:reset:safe": "node scripts/safe-reset.js",
+    "db:backup": "echo 'Please create manual backup before any migration'",
+    "format:prisma": "prisma format"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
