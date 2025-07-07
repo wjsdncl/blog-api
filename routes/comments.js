@@ -91,7 +91,7 @@ router.get(
       if (userId) {
         const existingLike = await prisma.commentLike.findUnique({
           where: {
-            userId_commentId: { userId, commentId: comment.id },
+            commentId_userId: { userId, commentId: comment.id },
           },
         });
         isLiked = !!existingLike;
@@ -183,7 +183,7 @@ router.post(
     const result = await prisma.$transaction(async (prisma) => {
       const existingLike = await prisma.commentLike.findUnique({
         where: {
-          userId_commentId: { userId, commentId },
+          commentId_userId: { userId, commentId },
         },
       });
 
@@ -194,14 +194,14 @@ router.post(
         // 좋아요 취소
         await prisma.commentLike.delete({
           where: {
-            userId_commentId: { userId, commentId },
+            commentId_userId: { userId, commentId },
           },
         });
 
         updatedComment = await prisma.comment.update({
           where: { id: commentId },
-          data: { likes: { decrement: 1 } },
-          select: { id: true, content: true, likes: true },
+          data: { likesCount: { decrement: 1 } },
+          select: { id: true, content: true, likesCount: true },
         });
 
         isLike = false;
@@ -216,8 +216,8 @@ router.post(
 
         updatedComment = await prisma.comment.update({
           where: { id: commentId },
-          data: { likes: { increment: 1 } },
-          select: { id: true, content: true, likes: true },
+          data: { likesCount: { increment: 1 } },
+          select: { id: true, content: true, likesCount: true },
         });
 
         isLike = true;
@@ -264,7 +264,7 @@ router.patch(
       });
     }
 
-    if (existingComment.userId !== req.user.userId && !req.user.isAdmin) {
+    if (existingComment.userId !== req.user.userId && !req.user.isOwner) {
       logger.warn("Unauthorized comment update attempt", {
         commentId: id,
         requesterId: req.user.userId,
@@ -313,7 +313,7 @@ router.delete(
     }
 
     // 댓글 소유권 확인
-    if (comment.userId !== req.user.userId && !req.user.isAdmin) {
+    if (comment.userId !== req.user.userId && !req.user.isOwner) {
       logger.warn("Unauthorized comment deletion attempt", {
         commentId: parseInt(id),
         requesterId: req.user.userId,
