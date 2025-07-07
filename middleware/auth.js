@@ -1,8 +1,9 @@
 import { verifyAccessToken, verifyRefreshToken, generateTokens } from "../utils/auth.js";
+import { prisma } from "../lib/prismaClient.js";
 import { logger } from "../utils/logger.js";
 
 // 공통 인증 처리 함수
-function handleAuthentication(req, res, next, isRequired) {
+async function handleAuthentication(req, res, next, isRequired) {
   const authHeader = req.headers.authorization;
   const refreshToken = req.headers["x-refresh-token"];
 
@@ -25,7 +26,26 @@ function handleAuthentication(req, res, next, isRequired) {
 
   try {
     const decoded = verifyAccessToken(accessToken);
-    req.user = decoded;
+    // Fetch full user details to attach roles/flags
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: {
+          id: true,
+          isOwner: true,
+          email: true,
+          name: true,
+        },
+      });
+      req.user = {
+        ...decoded,
+        ...dbUser,
+        userId: decoded.userId, // ensure JWT userId field kept
+      };
+    } catch (dbErr) {
+      logger.error("Failed to fetch user during auth", { error: dbErr.message });
+      req.user = decoded; // fallback
+    }
     next();
   } catch (err) {
     if (err.name === "TokenExpiredError" && refreshToken) {
@@ -73,25 +93,25 @@ function handleAuthentication(req, res, next, isRequired) {
 }
 
 // 필수 인증 미들웨어
-export function requiredAuthenticate(req, res, next) {
-  handleAuthentication(req, res, next, true);
+export async function requiredAuthenticate(req, res, next) {
+  await handleAuthentication(req, res, next, true);
 }
 
 // 선택적 인증 미들웨어
-export function optionalAuthenticate(req, res, next) {
-  handleAuthentication(req, res, next, false);
+export async function optionalAuthenticate(req, res, next) {
+  await handleAuthentication(req, res, next, false);
 }
 
 // 관리자 권한 확인 미들웨어
-export function requireAdmin(req, res, next) {
-  if (!req.user?.isAdmin) {
-    logger.warn("Admin access attempt by non-admin user", {
+export function requireOwner(req, res, next) {
+  if (!req.user?.isOwner) {
+    logger.warn("Owner access attempt by non-owner user", {
       userId: req.user?.userId,
       ip: req.ip,
     });
     return res.status(403).json({
       success: false,
-      error: "관리자 권한이 필요합니다.",
+      error: "블로그 소유자 권한이 필요합니다.",
     });
   }
   next();

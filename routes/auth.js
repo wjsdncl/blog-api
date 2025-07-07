@@ -1,6 +1,6 @@
 import express from "express";
-import { assert } from "superstruct";
-import { CreateUser } from "../lib/structs.js";
+
+
 import { prisma } from "../lib/prismaClient.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 import { generateTokens } from "../utils/auth.js";
@@ -23,6 +23,19 @@ const DEFAULT_COOKIE_OPTIONS = {
   sameSite: "none",
   path: "/",
 };
+
+// Helper to call GitHub API and throw on non-2xx
+async function fetchGitHubJson(url, options = {}) {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    // Log details but only expose generic message to client
+    logger.error("GitHub API error", { url, status: res.status, text });
+    throw new Error(`GitHub API request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 
 // GET /auth/github -> GitHub OAuth 로그인
 router.get("/github", (req, res) => {
@@ -52,7 +65,7 @@ router.get(
 
     try {
       // GitHub access token 받기
-      const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
+      const tokenData = await fetchGitHubJson("https://github.com/login/oauth/access_token", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -65,8 +78,6 @@ router.get(
         }),
       });
 
-      const tokenData = await tokenResponse.json();
-
       if (!tokenData.access_token) {
         logger.error("Failed to get GitHub access token", { tokenData });
         return res.status(400).json({
@@ -76,22 +87,18 @@ router.get(
       }
 
       // GitHub 사용자 정보 가져오기
-      const userResponse = await fetch("https://api.github.com/user", {
+      const userData = await fetchGitHubJson("https://api.github.com/user", {
         headers: {
           Authorization: `token ${tokenData.access_token}`,
         },
       });
-
-      const userData = await userResponse.json();
 
       // 이메일 정보 가져오기 (별도 API 호출 필요)
-      const emailResponse = await fetch("https://api.github.com/user/emails", {
+      const emailData = await fetchGitHubJson("https://api.github.com/user/emails", {
         headers: {
           Authorization: `token ${tokenData.access_token}`,
         },
       });
-
-      const emailData = await emailResponse.json();
       const primaryEmail = emailData.find((email) => email.primary)?.email;
 
       if (!primaryEmail) {
@@ -128,70 +135,16 @@ router.get(
       });
     } catch (error) {
       logger.error("GitHub OAuth callback error", { error: error.message, stack: error.stack });
-      res.status(500).json({
+      // 외부 API 오류일 경우 502, 기타는 500
+      const status = error.message.startsWith("GitHub API request failed") ? 502 : 500;
+      res.status(status).json({
         success: false,
-        error: "GitHub 로그인 처리 중 오류가 발생했습니다.",
+        error: status === 502 ? "GitHub API 호출 중 오류가 발생했습니다." : "GitHub 로그인 처리 중 서버 오류가 발생했습니다.",
       });
     }
   })
 );
 
-// POST /auth/signup -> 회원가입
-router.post(
-  "/signup",
-  asyncHandler(async (req, res) => {
-    const { email, name } = req.body;
-    assert({ email, name }, CreateUser);
-
-    // 이메일 중복 확인
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      logger.warn("Signup attempt with existing email", { email });
-      return res.status(409).json({
-        success: false,
-        error: "이미 존재하는 사용자입니다.",
-      });
-    }
-
-    // 유저 생성
-    const newUser = await prisma.user.create({
-      data: { email, name },
-    });
-
-    logger.info("New user created", { userId: newUser.id, email });
-
-    res.status(201).json({
-      success: true,
-      data: newUser,
-    });
-  })
-);
-
-// POST /auth/login -> 로그인
-router.post(
-  "/login",
-  asyncHandler(async (req, res) => {
-    const { email } = req.body;
-
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      logger.warn("Login attempt with non-existent email", { email });
-      return res.status(401).json({
-        success: false,
-        error: "사용자를 찾을 수 없습니다.",
-      });
-    }
-
-    const { accessToken, refreshToken } = generateTokens(user.id);
-
-    logger.info("User logged in", { userId: user.id, email });
-
-    res.json({
-      success: true,
-      data: { user, accessToken, refreshToken },
-    });
-  })
-);
 
 // POST /auth/logout -> 로그아웃
 router.post("/logout", (req, res) => {
