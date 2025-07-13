@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
@@ -71,7 +71,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // 요청 로깅 미들웨어
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction): void => {
   const start = Date.now();
 
   res.on("finish", () => {
@@ -100,7 +100,7 @@ app.use("/categories", categoriesRoutes);
 app.use("/tags", tagsRoutes);
 
 // Health Check
-app.get("/health", (req, res) => {
+app.get("/health", (req: Request, res: Response): void => {
   res.json({
     success: true,
     message: "Server is healthy",
@@ -110,7 +110,7 @@ app.get("/health", (req, res) => {
 });
 
 // 404 핸들러
-app.use("*", (req, res) => {
+app.use("*", (req: Request, res: Response): void => {
   logger.warn("404 Not Found", { url: req.originalUrl, method: req.method, ip: req.ip });
   res.status(404).json({
     success: false,
@@ -119,7 +119,7 @@ app.use("*", (req, res) => {
 });
 
 // 전역 에러 핸들러
-app.use((err, req, res, next) => {
+app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
   logger.error("Unhandled error", {
     error: err.message,
     stack: err.stack,
