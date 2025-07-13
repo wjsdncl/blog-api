@@ -2,18 +2,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-generator zod {
-  provider       = "zod-prisma-types"
-  output         = "./generated/zod"
-  useMultipleFiles = true
-  createInputTypes = true
-  createModelTypes = true
-  addInputTypeValidation = true
-  addIncludeType = false
-  addSelectType = false
-  validateWhereUniqueInput = true
-}
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
