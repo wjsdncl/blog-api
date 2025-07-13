@@ -1,6 +1,4 @@
-import express from "express";
-
-
+import express, { Request, Response } from "express";
 import { prisma } from "../lib/prismaClient.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 import { generateTokens } from "../utils/auth.js";
@@ -20,12 +18,32 @@ const GITHUB_CALLBACK_URL_DEV = process.env.GITHUB_CALLBACK_URL_DEV;
 const DEFAULT_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "none",
+  sameSite: "none" as const,
   path: "/",
 };
 
+// GitHub API 응답 타입
+interface GitHubTokenResponse {
+  access_token: string;
+  token_type: string;
+  scope: string;
+}
+
+interface GitHubUserResponse {
+  id: number;
+  login: string;
+  name: string | null;
+  email: string | null;
+}
+
+interface GitHubEmailResponse {
+  email: string;
+  primary: boolean;
+  verified: boolean;
+}
+
 // Helper to call GitHub API and throw on non-2xx
-async function fetchGitHubJson(url, options = {}) {
+async function fetchGitHubJson<T>(url: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(url, options);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -33,12 +51,11 @@ async function fetchGitHubJson(url, options = {}) {
     logger.error("GitHub API error", { url, status: res.status, text });
     throw new Error(`GitHub API request failed (${res.status})`);
   }
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
-
 // GET /auth/github -> GitHub OAuth 로그인
-router.get("/github", (req, res) => {
+router.get("/github", (req: Request, res: Response): void => {
   const isDev = req.headers.origin === "https://localhost:3000";
   const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${isDev ? GITHUB_CLIENT_ID_DEV : GITHUB_CLIENT_ID}&redirect_uri=${
     isDev ? GITHUB_CALLBACK_URL_DEV : GITHUB_CALLBACK_URL
@@ -51,21 +68,22 @@ router.get("/github", (req, res) => {
 // GET /auth/github/callback -> GitHub OAuth 콜백 처리
 router.get(
   "/github/callback",
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { code } = req.query;
     const isDev = req.headers.origin === "https://localhost:3000";
 
-    if (!code) {
+    if (!code || typeof code !== "string") {
       logger.warn("GitHub OAuth callback missing code parameter");
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: "GitHub 코드를 전달받지 못했습니다.",
       });
+      return;
     }
 
     try {
       // GitHub access token 받기
-      const tokenData = await fetchGitHubJson("https://github.com/login/oauth/access_token", {
+      const tokenData = await fetchGitHubJson<GitHubTokenResponse>("https://github.com/login/oauth/access_token", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -80,21 +98,22 @@ router.get(
 
       if (!tokenData.access_token) {
         logger.error("Failed to get GitHub access token", { tokenData });
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: "GitHub 토큰을 받아오지 못했습니다.",
         });
+        return;
       }
 
       // GitHub 사용자 정보 가져오기
-      const userData = await fetchGitHubJson("https://api.github.com/user", {
+      const userData = await fetchGitHubJson<GitHubUserResponse>("https://api.github.com/user", {
         headers: {
           Authorization: `token ${tokenData.access_token}`,
         },
       });
 
       // 이메일 정보 가져오기 (별도 API 호출 필요)
-      const emailData = await fetchGitHubJson("https://api.github.com/user/emails", {
+      const emailData = await fetchGitHubJson<GitHubEmailResponse[]>("https://api.github.com/user/emails", {
         headers: {
           Authorization: `token ${tokenData.access_token}`,
         },
@@ -103,10 +122,11 @@ router.get(
 
       if (!primaryEmail) {
         logger.error("GitHub user has no primary email", { userData });
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: "GitHub 계정에 이메일이 설정되어 있지 않습니다.",
         });
+        return;
       }
 
       // 사용자 찾기 또는 생성
@@ -127,13 +147,13 @@ router.get(
       }
 
       // JWT 토큰 생성
-      const { accessToken, refreshToken } = generateTokens(user.id);
+      const { accessToken, refreshToken } = generateTokens(user.id, user.email);
 
       res.status(200).json({
         success: true,
         data: { user, accessToken, refreshToken },
       });
-    } catch (error) {
+    } catch (error: any) {
       logger.error("GitHub OAuth callback error", { error: error.message, stack: error.stack });
       // 외부 API 오류일 경우 502, 기타는 500
       const status = error.message.startsWith("GitHub API request failed") ? 502 : 500;
@@ -145,9 +165,8 @@ router.get(
   })
 );
 
-
 // POST /auth/logout -> 로그아웃
-router.post("/logout", (req, res) => {
+router.post("/logout", (req: Request, res: Response): void => {
   res.clearCookie("accessToken", DEFAULT_COOKIE_OPTIONS);
   res.clearCookie("refreshToken", DEFAULT_COOKIE_OPTIONS);
 
