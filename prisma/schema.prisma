@@ -2,18 +2,30 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator zod {
+  provider       = "zod-prisma-types"
+  output         = "./generated/zod"
+  useMultipleFiles = true
+  createInputTypes = true
+  createModelTypes = true
+  addInputTypeValidation = true
+  addIncludeType = false
+  addSelectType = false
+  validateWhereUniqueInput = true
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id           String        @id @default(uuid())       // 사용자 고유 ID
-  email        String        @unique                    // 이메일 주소 (필수)
-  name         String        @db.VarChar(100)           // 사용자 이름
-  createdAt    DateTime      @default(now())            // 생성일시
-  updatedAt    DateTime      @updatedAt                 // 수정일시
-  isOwner      Boolean       @default(false)            // 블로그 소유자 여부
+  id           String        @id @default(uuid())       /// @zod.string.uuid()
+  email        String        @unique                    /// @zod.string.email()
+  name         String        @db.VarChar(100)           /// @zod.string.min(1).max(100)
+  createdAt    DateTime      @default(now())            /// @zod.date()
+  updatedAt    DateTime      @updatedAt                 /// @zod.date()
+  isOwner      Boolean       @default(false)            /// @zod.boolean()
   comments     Comment[]                                // 작성한 댓글들
   commentLikes CommentLike[]                            // 댓글 좋아요들
   postLikes    PostLike[]                               // 포스트 좋아요들
@@ -25,18 +37,18 @@ model User {
 }
 
 model Post {
-  id            Int           @id @default(autoincrement()) // 포스트 고유 ID
-  thumbnail     String?       @db.VarChar(500)             // 썸네일 이미지 URL
-  categoryId    Int?                                       // 카테고리 ID (외래키)
-  title         String        @db.VarChar(200)             // 포스트 제목
-  content       String        @db.Text                     // 포스트 내용
-  likesCount    Int           @default(0)                  // 좋아요 수 (캐시 필드)
-  views         Int           @default(0)                  // 조회수
-  createdAt     DateTime      @default(now())              // 생성일시
-  updatedAt     DateTime      @updatedAt                   // 수정일시
-  slug          String        @unique @db.VarChar(255)     // SEO 친화적 URL
-  choseongTitle String        @db.VarChar(200)             // 초성 제목 (한국어 검색용)
-  isPrivate     Boolean       @default(false)              // 비공개 여부
+  id            Int           @id @default(autoincrement()) /// @zod.number.int().positive()
+  thumbnail     String?       @db.VarChar(500)             /// @zod.string.url().optional()
+  categoryId    Int?                                       /// @zod.number.int().positive().optional()
+  title         String        @db.VarChar(200)             /// @zod.string.min(1).max(200)
+  content       String        @db.Text                     /// @zod.string.min(1)
+  likesCount    Int           @default(0)                  /// @zod.number.int().min(0)
+  views         Int           @default(0)                  /// @zod.number.int().min(0)
+  createdAt     DateTime      @default(now())              /// @zod.date()
+  updatedAt     DateTime      @updatedAt                   /// @zod.date()
+  slug          String        @unique @db.VarChar(255)     /// @zod.string.min(1).max(255)
+  choseongTitle String        @db.VarChar(200)             /// @zod.string.max(200)
+  isPrivate     Boolean       @default(false)              /// @zod.boolean()
   comments      Comment[]                                  // 댓글들
   postLikes     PostLike[]                                 // 좋아요들
   category      Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull) // 카테고리
@@ -66,17 +78,17 @@ model PostLike {
 }
 
 model Comment {
-  id              Int           @id @default(autoincrement()) // 댓글 고유 ID
-  content         String        @db.Text                     // 댓글 내용
-  likesCount      Int           @default(0)                  // 좋아요 수 (캐시 필드)
-  createdAt       DateTime      @default(now())              // 생성일시
-  updatedAt       DateTime      @updatedAt                   // 수정일시
-  userId          String                                     // 사용자 ID (로그인 필수)
-  postId          Int                                        // 포스트 ID
-  parentCommentId Int?                                       // 부모 댓글 ID (대댓글인 경우)
-  isDeleted       Boolean       @default(false)              // 삭제 여부 (소프트 삭제)
-  isEdited        Boolean       @default(false)              // 수정 여부
-  depth           Int           @default(0)                  // 댓글 깊이 (0: 댓글, 1: 대댓글, ...)
+  id              Int           @id @default(autoincrement()) /// @zod.number.int().positive()
+  content         String        @db.Text                     /// @zod.string.min(1)
+  likesCount      Int           @default(0)                  /// @zod.number.int().min(0)
+  createdAt       DateTime      @default(now())              /// @zod.date()
+  updatedAt       DateTime      @updatedAt                   /// @zod.date()
+  userId          String                                     /// @zod.string.uuid()
+  postId          Int                                        /// @zod.number.int().positive()
+  parentCommentId Int?                                       /// @zod.number.int().positive().optional()
+  isDeleted       Boolean       @default(false)              /// @zod.boolean()
+  isEdited        Boolean       @default(false)              /// @zod.boolean()
+  depth           Int           @default(0)                  /// @zod.number.int().min(0).max(3)
   parentComment   Comment?      @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull) // 부모 댓글
   replies         Comment[]     @relation("CommentReplies")  // 대댓글들
   post            Post          @relation(fields: [postId], references: [id], onDelete: Cascade)     // 포스트
@@ -111,10 +123,10 @@ model CommentLike {
 }
 
 model Category {
-  id          Int           @id @default(autoincrement())   // 카테고리 고유 ID
-  name        String        @unique @db.VarChar(50)         // 카테고리 이름
-  slug        String        @unique @db.VarChar(100)        // SEO 친화적 URL
-  createdAt   DateTime      @default(now())                 // 생성일시
+  id          Int           @id @default(autoincrement())   /// @zod.number.int().positive()
+  name        String        @unique @db.VarChar(50)         /// @zod.string.min(1).max(50)
+  slug        String        @unique @db.VarChar(100)        /// @zod.string.min(1).max(100)
+  createdAt   DateTime      @default(now())                 /// @zod.date()
   posts       Post[]                                        // 이 카테고리의 포스트들
   projects    Project[]                                     // 이 카테고리의 프로젝트들
 
@@ -123,10 +135,10 @@ model Category {
 }
 
 model Tag {
-  id        Int           @id @default(autoincrement())   // 태그 고유 ID
-  name      String        @unique @db.VarChar(50)         // 태그 이름
-  slug      String        @unique @db.VarChar(100)        // SEO 친화적 URL
-  createdAt DateTime      @default(now())                 // 생성일시
+  id        Int           @id @default(autoincrement())   /// @zod.number.int().positive()
+  name      String        @unique @db.VarChar(50)         /// @zod.string.min(1).max(50)
+  slug      String        @unique @db.VarChar(100)        /// @zod.string.min(1).max(100)
+  createdAt DateTime      @default(now())                 /// @zod.date()
   posts     Post[]                                        // 이 태그가 붙은 포스트들
   projects  Project[]                                     // 이 태그가 붙은 프로젝트들
 
