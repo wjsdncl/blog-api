@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "outDir": "./dist",
+    "rootDir": "./",
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "types": ["node"],
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true
+  },
+  "include": ["**/*.ts", "**/*.js"],
+  "exclude": ["node_modules", "dist", "prisma/migrations"]
+}
