@@ -1,31 +1,31 @@
 import * as dotenv from "dotenv";
+import type { Config } from "../types/environment.js";
+import { REQUIRED_ENV_VARS } from "../types/environment.js";
 
 dotenv.config();
 
 // 필수 환경 변수 검증
-const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET", "JWT_REFRESH_SECRET", "SUPABASE_URL", "SUPABASE_ANON_KEY"];
-
-const missingVars = requiredEnvVars.filter((varName) => !process.env[varName]);
+const missingVars = REQUIRED_ENV_VARS.filter((varName) => !process.env[varName]);
 
 if (missingVars.length > 0) {
   throw new Error(`Missing required environment variables: ${missingVars.join(", ")}`);
 }
 
-export const config = {
+export const config: Config = {
   // 서버 설정
-  port: process.env.PORT || 8000,
+  port: Number(process.env.PORT) || 8000,
   nodeEnv: process.env.NODE_ENV || "development",
 
   // 데이터베이스
-  databaseUrl: process.env.DATABASE_URL,
+  databaseUrl: process.env.DATABASE_URL!,
 
   // JWT 설정
-  jwtSecret: process.env.JWT_SECRET,
-  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
+  jwtSecret: process.env.JWT_SECRET!,
+  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET!,
 
   // Supabase 설정
-  supabaseUrl: process.env.SUPABASE_URL,
-  supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+  supabaseUrl: process.env.SUPABASE_URL!,
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY!,
 
   // GitHub OAuth 설정
   github: {
