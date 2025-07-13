@@ -1,17 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 
 class PrismaClientSingleton {
-  static instance;
+  private static instance: PrismaClient;
 
-  static getInstance() {
+  static getInstance(): PrismaClient {
     if (!PrismaClientSingleton.instance) {
       PrismaClientSingleton.instance = new PrismaClient({
-        log: [
-          { emit: "event", level: "query" },
-          { emit: "stdout", level: "error" },
-          { emit: "stdout", level: "info" },
-          { emit: "stdout", level: "warn" },
-        ],
+        log: process.env.NODE_ENV === "development" ? ["query", "error", "info", "warn"] : ["error"],
       });
 
       // 쿼리 성능 모니터링을 위한 미들웨어 설정
@@ -33,11 +28,3 @@ class PrismaClientSingleton {
 }
 
 export const prisma = PrismaClientSingleton.getInstance();
-
-// 개발 환경에서 쿼리 로깅
-if (process.env.NODE_ENV === "development") {
-  prisma.$on("query", (e) => {
-    console.log("Query: " + e.query);
-    console.log("Duration: " + e.duration + "ms");
-  });
-}
