@@ -45,6 +45,33 @@ function parseTags(tagsString) {
     .filter((tag) => tag.length > 0);
 }
 
+// 이미지 배열 파싱 함수
+function parseImages(imagesString) {
+  if (!imagesString || imagesString === "\\N") return [];
+
+  const cleaned = imagesString.replace(/[{}]/g, "");
+  if (!cleaned.trim()) return [];
+
+  return cleaned
+    .split(",")
+    .map((url) => url.trim())
+    .filter((url) => url.length > 0);
+}
+
+// Summary 배열 파싱 함수
+function parseSummary(summaryString) {
+  if (!summaryString || summaryString === "\\N") return [];
+
+  try {
+    const cleaned = summaryString.replace(/"/g, '"');
+    const parsed = JSON.parse(cleaned);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn("Summary 파싱 실패:", summaryString);
+    return [];
+  }
+}
+
 // 카테고리에서 슬러그 생성
 function createSlug(text) {
   return text
@@ -269,6 +296,151 @@ async function migrateComments() {
   console.log(`✅ 댓글 ${commentData.length}개 마이그레이션 완료\n`);
 }
 
+// 프로젝트 마이그레이션
+async function migrateProjects() {
+  console.log("🎯 프로젝트 데이터 마이그레이션 시작...");
+
+  const dataPath = path.join(process.cwd(), "prisma", "blog_9btt_rgor", "3440.dat");
+  
+  if (!fs.existsSync(dataPath)) {
+    console.log("ℹ️ 프로젝트 데이터 파일이 없습니다. 건너뜁니다.");
+    return;
+  }
+
+  const projectData = parseDatFile(dataPath);
+
+  for (const row of projectData) {
+    const [
+      id,
+      title,
+      start_date,
+      end_date,
+      description,
+      summary,
+      tech_stack,
+      github_url,
+      demo_url,
+      created_at,
+      updated_at,
+      is_personal,
+      content,
+      images
+    ] = row;
+
+    try {
+      // 기술 스택 생성
+      const techStackNames = parseTags(tech_stack);
+      const techStacks = [];
+
+      for (const techName of techStackNames) {
+        try {
+          const techStack = await prisma.techStack.upsert({
+            where: { name: techName },
+            update: {},
+            create: { name: techName }
+          });
+          techStacks.push({ id: techStack.id });
+        } catch (error) {
+          console.warn(`⚠️ 기술 스택 생성 실패: ${techName}`, error.message);
+        }
+      }
+
+      // 프로젝트 카테고리 확인/생성
+      let categoryId = null;
+      const categoryRecord = await prisma.category.findFirst({
+        where: { name: "프로젝트" }
+      });
+      if (!categoryRecord) {
+        const newCategory = await prisma.category.create({
+          data: {
+            name: "프로젝트",
+            slug: "project"
+          }
+        });
+        categoryId = newCategory.id;
+      } else {
+        categoryId = categoryRecord.id;
+      }
+
+      await prisma.project.upsert({
+        where: { slug: createSlug(title) },
+        update: {},
+        create: {
+          id: parseInt(id),
+          title,
+          slug: createSlug(title),
+          description: description || "",
+          content: content || "",
+          images: parseImages(images),
+          summary: parseSummary(summary),
+          status: "COMPLETED",
+          categoryId,
+          startDate: new Date(start_date),
+          endDate: end_date === "\\N" ? null : new Date(end_date),
+          isPersonal: is_personal === true,
+          isActive: true,
+          priority: 0,
+          createdAt: new Date(created_at),
+          updatedAt: new Date(updated_at),
+          techStack: {
+            connect: techStacks
+          }
+        }
+      });
+
+      // 프로젝트 링크 생성
+      const project = await prisma.project.findUnique({
+        where: { slug: createSlug(title) }
+      });
+
+      if (project) {
+        // 기존 링크가 있는지 확인하고 중복 방지
+        if (github_url && github_url !== "\\N") {
+          const existingGithubLink = await prisma.projectLink.findFirst({
+            where: { 
+              projectId: project.id, 
+              title: "GitHub" 
+            }
+          });
+          
+          if (!existingGithubLink) {
+            await prisma.projectLink.create({
+              data: {
+                title: "GitHub",
+                url: github_url,
+                projectId: project.id
+              }
+            });
+          }
+        }
+
+        if (demo_url && demo_url !== "\\N") {
+          const existingDemoLink = await prisma.projectLink.findFirst({
+            where: { 
+              projectId: project.id, 
+              title: "Demo" 
+            }
+          });
+          
+          if (!existingDemoLink) {
+            await prisma.projectLink.create({
+              data: {
+                title: "Demo",
+                url: demo_url,
+                projectId: project.id
+              }
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ 프로젝트 생성 실패: ${title}`, error.message);
+    }
+  }
+
+  console.log(`✅ 프로젝트 ${projectData.length}개 마이그레이션 완료\n`);
+}
+
 // 데이터 검증
 async function verifyData() {
   console.log("🔍 데이터 검증 시작...");
@@ -278,6 +450,8 @@ async function verifyData() {
   const tagCount = await prisma.tag.count();
   const postCount = await prisma.post.count();
   const commentCount = await prisma.comment.count();
+  const projectCount = await prisma.project.count();
+  const techStackCount = await prisma.techStack.count();
 
   console.log(`📊 마이그레이션 결과:`);
   console.log(`   - 사용자: ${userCount}개`);
@@ -285,6 +459,8 @@ async function verifyData() {
   console.log(`   - 태그: ${tagCount}개`);
   console.log(`   - 포스트: ${postCount}개`);
   console.log(`   - 댓글: ${commentCount}개`);
+  console.log(`   - 프로젝트: ${projectCount}개`);
+  console.log(`   - 기술스택: ${techStackCount}개`);
 
   console.log("✅ 데이터 검증 완료\n");
 }
@@ -306,6 +482,7 @@ async function main() {
     await createTags();
     await migratePosts();
     await migrateComments();
+    await migrateProjects();
     await verifyData();
 
     console.log("🎉 블로그 데이터 마이그레이션이 성공적으로 완료되었습니다!");
