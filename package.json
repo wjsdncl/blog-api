@@ -40,6 +40,10 @@
     "dev": "tsx watch app.ts",
     "start": "node dist/app.js",
     "build": "tsc",
+    "build:full": "npm ci && npx prisma generate && tsc",
+    "build:with-db": "npm ci && npx prisma generate && npx prisma migrate deploy && tsc",
+    "build:with-data": "npm ci && npx prisma generate && npx prisma migrate deploy && npm run migrate:blog-data && tsc",
+    "build:render": "npx prisma generate && npx prisma migrate deploy && npm run migrate:blog-data && tsc",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.js",
     "lint:fix": "eslint . --ext .ts,.js --fix",
@@ -47,7 +51,9 @@
     "start:js": "node app.js",
     "db:reset:safe": "node scripts/safe-reset.js",
     "db:backup": "echo 'Please create manual backup before any migration'",
-    "format:prisma": "prisma format"
+    "format:prisma": "prisma format",
+    "migrate:blog-data": "node prisma/migrate-blog-data.js",
+    "deploy:migrate": "prisma migrate deploy && npm run migrate:blog-data"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

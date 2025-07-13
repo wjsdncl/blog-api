@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 
 import { config } from "./config/index.js";
 import { logger } from "./utils/logger.js";
+import { runDataMigration } from "./utils/migration.js";
 
 // 라우트 임포트
 import authRoutes from "./routes/auth.js";
@@ -135,13 +136,33 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
 });
 
 // 서버 시작
-app.listen(config.port, () => {
-  logger.info(`Server started`, {
-    port: config.port,
-    environment: config.nodeEnv,
-    timestamp: new Date().toISOString(),
+const startServer = async () => {
+  // 자동 데이터 마이그레이션 실행 (환경변수로 제어)
+  if (process.env.AUTO_MIGRATE_DATA === "true") {
+    try {
+      await runDataMigration();
+    } catch (error) {
+      logger.error("서버 시작 중 마이그레이션 실패:", error);
+      if (process.env.NODE_ENV !== "production") {
+        process.exit(1);
+      }
+    }
+  }
+
+  app.listen(config.port, () => {
+    logger.info(`Server started`, {
+      port: config.port,
+      environment: config.nodeEnv,
+      timestamp: new Date().toISOString(),
+      autoMigration: process.env.AUTO_MIGRATE_DATA === "true",
+    });
+    console.log(`Server is running on http://localhost:${config.port}`);
   });
-  console.log(`Server is running on http://localhost:${config.port}`);
+};
+
+startServer().catch((error) => {
+  logger.error("서버 시작 실패:", error);
+  process.exit(1);
 });
 
 // Graceful shutdown
