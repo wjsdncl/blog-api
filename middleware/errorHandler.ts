@@ -1,26 +1,38 @@
-import pkg from "jsonwebtoken";
+import { Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import { Prisma } from "@prisma/client";
-import { StructError } from "superstruct";
+import { ZodError } from "zod";
 
-const { JsonWebTokenError, TokenExpiredError, NotBeforeError } = pkg;
+const { JsonWebTokenError, TokenExpiredError, NotBeforeError } = jwt;
 
 // 디버그 모드 설정 (개발 환경에서만 상세 오류 표시)
 const DEBUG_MODE = process.env.NODE_ENV !== "production";
 
+// 에러 응답 타입
+interface ErrorResponse {
+  success: false;
+  error: string;
+  stack?: string;
+  details?: any;
+  field?: string;
+  code?: string;
+  status?: number;
+}
+
 // 로깅 함수
-const logError = (error) => {
+const logError = (error: Error): void => {
   if (DEBUG_MODE) {
     console.error("Error details:", error);
   }
 };
 
-export function asyncHandler(handler) {
-  return async (req, res) => {
+export function asyncHandler(handler: (req: Request, res: Response) => Promise<void>) {
+  return async (req: Request, res: Response): Promise<void> => {
     try {
       await handler(req, res);
-    } catch (e) {
+    } catch (e: any) {
       // 기본 응답 설정
-      let response = {
+      let response: ErrorResponse = {
         success: false,
         error: "알 수 없는 오류가 발생했습니다.",
         ...(DEBUG_MODE && { stack: e.stack }),
@@ -28,12 +40,13 @@ export function asyncHandler(handler) {
 
       logError(e);
 
-      // 구조적 유효성 검증 오류 (superstruct)
-      if (e instanceof StructError) {
+      // Zod 유효성 검증 오류 (Superstruct 대체)
+      if (e instanceof ZodError) {
+        const fieldErrors = e.errors.map((err: any) => `${err.path.join(".")}: ${err.message}`).join(", ");
         response = {
           success: false,
-          error: `입력 데이터 오류: ${e.key} 필드가 올바르지 않습니다. ${e.message}`,
-          ...(DEBUG_MODE && { details: e.value }),
+          error: `입력 데이터 오류: ${fieldErrors}`,
+          ...(DEBUG_MODE && { details: e.errors }),
         };
         res.status(400).json(response);
       }
@@ -52,7 +65,7 @@ export function asyncHandler(handler) {
             response = {
               success: false,
               error: "입력 데이터 오류: 제공된 값이 해당 컬럼 유형에 비해 너무 깁니다.",
-              ...(DEBUG_MODE && { field: e.meta?.target }),
+              ...(DEBUG_MODE && { field: e.meta?.target as string }),
             };
             res.status(400).json(response);
             break;
@@ -68,11 +81,7 @@ export function asyncHandler(handler) {
           case "P2002":
             response = {
               success: false,
-              error: `중복된 데이터 오류: ${
-                Array.isArray(e.meta?.target)
-                  ? e.meta.target.join(", ")
-                  : e.meta?.target || "알 수 없는 필드"
-              }`,
+              error: `중복된 데이터 오류: ${Array.isArray(e.meta?.target) ? (e.meta.target as string[]).join(", ") : (e.meta?.target as string) || "알 수 없는 필드"}`,
             };
             res.status(409).json(response);
             break;
@@ -81,7 +90,7 @@ export function asyncHandler(handler) {
             response = {
               success: false,
               error: "외래 키 제약조건 오류: 참조하는 레코드가 존재하지 않습니다.",
-              ...(DEBUG_MODE && { field: e.meta?.field_name }),
+              ...(DEBUG_MODE && { field: e.meta?.field_name as string }),
             };
             res.status(400).json(response);
             break;
