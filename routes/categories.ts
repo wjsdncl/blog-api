@@ -25,7 +25,19 @@ router.get(
         },
       },
     });
-    res.json({ success: true, data: categories });
+
+    // 명확한 네이밍으로 변환
+    const categoriesWithCounts = categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      createdAt: category.createdAt,
+      postsCount: category._count.posts,
+      projectsCount: category._count.projects,
+      totalCount: category._count.posts + category._count.projects,
+    }));
+
+    res.json({ success: true, data: categoriesWithCounts });
   })
 );
 

@@ -37,9 +37,19 @@ router.get(
       return;
     }
 
+    // 명확한 네이밍으로 변환
+    const userWithCounts = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      isOwner: user.isOwner,
+      createdAt: user.createdAt,
+      commentsCount: user._count.comments,
+    };
+
     res.json({
       success: true,
-      data: user,
+      data: userWithCounts,
     });
   })
 );

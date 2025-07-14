@@ -9,14 +9,6 @@ import { logger } from "../utils/logger.js";
 
 const router = express.Router();
 
-const createSlug = (text: string): string =>
-  text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9가-힣ㄱ-ㅎ\s]/g, "") // remove special characters
-    .replace(/\s+/g, "-") // replace spaces with hyphens
-    .replace(/-+/g, "-"); // replace multiple hyphens with a single one
-
 // GET /posts -> Get all posts
 router.get(
   "/",
@@ -53,7 +45,7 @@ router.get(
       ...(!isOwner && { isPrivate: false }),
     };
 
-    const [totalCount, posts] = await Promise.all([
+    const [totalCount, posts, categories] = await Promise.all([
       prisma.post.count({ where }),
       prisma.post.findMany({
         where,
@@ -66,11 +58,36 @@ router.get(
           _count: { select: { comments: true, postLikes: true } },
         },
       }),
+      prisma.category.findMany({
+        include: {
+          _count: {
+            select: { posts: true },
+          },
+        },
+      }),
     ]);
+
+    // posts에 명확한 네이밍으로 변환
+    const postsWithCounts = posts.map((post) => ({
+      ...post,
+      commentsCount: post._count.comments,
+      likesCount: post._count.postLikes,
+      _count: undefined,
+    }));
+
+    // categories에 명확한 네이밍으로 변환
+    const categoriesWithCounts = categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      createdAt: category.createdAt,
+      postsCount: category._count.posts,
+    }));
 
     res.json({
       success: true,
-      data: posts,
+      data: postsWithCounts,
+      categories: categoriesWithCounts,
       meta: {
         pagination: {
           offset: parseInt(offset as string),

@@ -25,7 +25,19 @@ router.get(
         },
       },
     });
-    res.json({ success: true, data: tags });
+
+    // 명확한 네이밍으로 변환
+    const tagsWithCounts = tags.map((tag) => ({
+      id: tag.id,
+      name: tag.name,
+      slug: tag.slug,
+      createdAt: tag.createdAt,
+      postsCount: tag._count.posts,
+      projectsCount: tag._count.projects,
+      totalCount: tag._count.posts + tag._count.projects,
+    }));
+
+    res.json({ success: true, data: tagsWithCounts });
   })
 );
 
