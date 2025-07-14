@@ -61,7 +61,13 @@ router.get(
       prisma.category.findMany({
         include: {
           _count: {
-            select: { posts: true },
+            select: {
+              posts: {
+                where: {
+                  ...(!isOwner && { isPrivate: false }),
+                },
+              },
+            },
           },
         },
       }),
