@@ -39,6 +39,8 @@ router.get(
         include: {
           category: { select: { name: true, slug: true } },
           tags: { select: { name: true, slug: true } },
+          techStack: { select: { name: true } },
+          links: { select: { id: true, title: true, url: true, icon: true } },
         },
         orderBy: {
           priority: "desc",
@@ -76,6 +78,8 @@ router.get(
       include: {
         category: { select: { name: true, slug: true } },
         tags: { select: { name: true, slug: true } },
+        techStack: { select: { name: true } },
+        links: { select: { id: true, title: true, url: true, icon: true } },
       },
     });
 
@@ -131,6 +135,8 @@ router.post(
       include: {
         category: { select: { name: true, slug: true } },
         tags: { select: { name: true, slug: true } },
+        techStack: { select: { name: true } },
+        links: { select: { id: true, title: true, url: true, icon: true } },
       },
     });
 
@@ -138,6 +144,99 @@ router.post(
       success: true,
       data: project,
     });
+  })
+);
+
+// PATCH /projects/:id -> 프로젝트 수정
+router.patch(
+  "/:id",
+  requiredAuthenticate,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    if (!req.user?.isOwner) {
+      res.status(403).json({
+        success: false,
+        error: "프로젝트 수정 권한이 없습니다.",
+      });
+      return;
+    }
+
+    const { id } = req.params;
+    const validatedData = UpdateProjectSchema.parse(req.body);
+
+    // 기존 프로젝트 존재 확인
+    const existingProject = await prisma.project.findUnique({
+      where: { id: parseInt(id) },
+    });
+
+    if (!existingProject) {
+      res.status(404).json({
+        success: false,
+        error: "프로젝트를 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    // 제목이 변경된 경우 새로운 slug 생성
+    const slug = validatedData.title ? createSlug(validatedData.title) : existingProject.slug;
+
+    const { categoryId, ...projectData } = validatedData;
+
+    const updatedProject = await prisma.project.update({
+      where: { id: parseInt(id) },
+      data: {
+        ...projectData,
+        ...(validatedData.title && { slug }),
+        ...(validatedData.startDate && { startDate: new Date(validatedData.startDate) }),
+        ...(validatedData.endDate && { endDate: new Date(validatedData.endDate) }),
+        ...(categoryId !== undefined && { categoryId: categoryId || null }),
+      },
+      include: {
+        category: { select: { name: true, slug: true } },
+        tags: { select: { name: true, slug: true } },
+        techStack: { select: { name: true } },
+        links: { select: { id: true, title: true, url: true, icon: true } },
+      },
+    });
+
+    res.json({
+      success: true,
+      data: updatedProject,
+    });
+  })
+);
+
+// DELETE /projects/:id -> 프로젝트 삭제
+router.delete(
+  "/:id",
+  requiredAuthenticate,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    if (!req.user?.isOwner) {
+      res.status(403).json({
+        success: false,
+        error: "프로젝트 삭제 권한이 없습니다.",
+      });
+      return;
+    }
+
+    const { id } = req.params;
+
+    const existingProject = await prisma.project.findUnique({
+      where: { id: parseInt(id) },
+    });
+
+    if (!existingProject) {
+      res.status(404).json({
+        success: false,
+        error: "프로젝트를 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    await prisma.project.delete({
+      where: { id: parseInt(id) },
+    });
+
+    res.status(204).send();
   })
 );
 
