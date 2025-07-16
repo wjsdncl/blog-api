@@ -50,7 +50,11 @@ router.get(
 
     res.json({
       success: true,
-      data: projects,
+      data: projects.map(project => ({
+        ...project,
+        techStack: project.techStack || [],
+        links: project.links || [],
+      })),
       meta: {
         pagination: {
           offset: parseInt(offset as string),
@@ -93,7 +97,11 @@ router.get(
 
     res.json({
       success: true,
-      data: project,
+      data: {
+        ...project,
+        techStack: project.techStack || [],
+        links: project.links || [],
+      },
     });
   })
 );

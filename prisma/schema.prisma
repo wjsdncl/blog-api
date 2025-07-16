@@ -162,7 +162,7 @@ model Project {
   updatedAt   DateTime       @updatedAt                     // 수정일시
   category    Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull) // 카테고리
   tags        Tag[]                                         // 태그들
-  techStack   TechStack[]                                   // 기술 스택들
+  techStack   TechStack[]    @relation("ProjectTechStack")  // 기술 스택들
 
   @@index([slug])
   @@index([isActive, priority])
@@ -177,7 +177,7 @@ model TechStack {
   id          Int       @id @default(autoincrement())     // 기술 스택 고유 ID
   name        String    @unique @db.VarChar(50)           // 기술 이름 (예: "React", "Node.js", "TypeScript")
   createdAt   DateTime  @default(now())                   // 생성일시
-  projects    Project[]                                   // 이 기술을 사용한 프로젝트들
+  projects    Project[] @relation("ProjectTechStack")     // 이 기술을 사용한 프로젝트들
 
   @@map("tech_stacks")
 }
