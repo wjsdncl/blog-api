@@ -1,37 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-import { USER, COMMENT, POST } from "./mock.js";
+// Seed 파일 - 개발 환경용 기본 데이터
+// 프로덕션 데이터는 별도 마이그레이션으로 처리
 
-const prisma = new PrismaClient();
-
-async function main() {
-  // 기존 데이터 삭제
-  await prisma.comment.deleteMany();
-  await prisma.post.deleteMany();
-  await prisma.user.deleteMany();
-
-  // 목 데이터 삽입
-  await prisma.user.createMany({
-    data: USER,
-    skipDuplicates: true,
-  });
-
-  await prisma.post.createMany({
-    data: POST,
-    skipDuplicates: true,
-  });
-
-  await prisma.comment.createMany({
-    data: COMMENT,
-    skipDuplicates: true,
-  });
-}
-
-main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
-    console.error(e);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+console.log("Seed 작업이 완료되었습니다.");
+console.log("Note: 실제 데이터는 프로덕션 마이그레이션 후 복원됩니다.");

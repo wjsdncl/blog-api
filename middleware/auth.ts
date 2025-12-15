@@ -1,28 +1,30 @@
-import { Request, Response, NextFunction } from "express";
+import { FastifyRequest, FastifyReply, HookHandlerDoneFunction } from "fastify";
 import { verifyAccessToken, verifyRefreshToken, generateTokens } from "../utils/auth.js";
 import { prisma } from "../lib/prismaClient.js";
 import { logger } from "../utils/logger.js";
-import { AuthenticatedRequest, User } from "../types/express.js";
+import { AuthenticatedRequest, User } from "../types/fastify.js";
 
 // 공통 인증 처리 함수
-async function handleAuthentication(req: Request, res: Response, next: NextFunction, isRequired: boolean): Promise<void> {
-  const authHeader = req.headers.authorization;
-  const refreshToken = req.headers["x-refresh-token"] as string;
+async function handleAuthentication(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  isRequired: boolean
+): Promise<void> {
+  const authHeader = request.headers.authorization;
+  const refreshToken = request.headers["x-refresh-token"] as string;
 
   if (!authHeader) {
     if (isRequired) {
       logger.warn("Missing authorization header", {
-        ip: req.ip,
-        userAgent: req.get("User-Agent"),
+        ip: request.ip,
+        userAgent: request.headers["user-agent"],
       });
-      res.status(401).json({
+      return reply.status(401).send({
         success: false,
         error: "로그인이 필요합니다.",
       });
-      return;
     } else {
-      (req as AuthenticatedRequest).user = null;
-      next();
+      request.user = null;
       return;
     }
   }
@@ -37,93 +39,90 @@ async function handleAuthentication(req: Request, res: Response, next: NextFunct
         where: { id: decoded.userId },
         select: {
           id: true,
-          isOwner: true,
+          role: true,
           email: true,
-          name: true,
+          username: true,
         },
       });
 
       if (dbUser) {
-        (req as AuthenticatedRequest).user = {
+        request.user = {
           ...decoded,
           ...dbUser,
           userId: decoded.userId, // ensure JWT userId field kept
         } as User;
       } else {
-        (req as AuthenticatedRequest).user = decoded as User;
+        request.user = decoded as User;
       }
     } catch (dbErr: any) {
       logger.error("Failed to fetch user during auth", { error: dbErr.message });
-      (req as AuthenticatedRequest).user = decoded as User; // fallback
+      request.user = decoded as User; // fallback
     }
-    next();
   } catch (err: any) {
     if (err.name === "TokenExpiredError" && refreshToken) {
       try {
         const refreshDecoded = verifyRefreshToken(refreshToken);
-        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(refreshDecoded.userId, refreshDecoded.email || "");
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(
+          refreshDecoded.userId,
+          refreshDecoded.email || ""
+        );
 
-        res.setHeader("Authorization", `Bearer ${newAccessToken}`);
-        res.setHeader("X-Refresh-Token", newRefreshToken);
+        reply.header("Authorization", `Bearer ${newAccessToken}`);
+        reply.header("X-Refresh-Token", newRefreshToken);
 
-        (req as AuthenticatedRequest).user = refreshDecoded as User;
+        request.user = refreshDecoded as User;
         logger.info("Token refreshed", { userId: refreshDecoded.userId });
-        next();
       } catch (refreshErr: any) {
         logger.warn("Refresh token verification failed", {
           error: refreshErr.message,
-          ip: req.ip,
+          ip: request.ip,
         });
         if (isRequired) {
-          res.status(401).json({
+          return reply.status(401).send({
             success: false,
             error: "세션이 만료되었습니다. 다시 로그인해주세요.",
           });
         } else {
-          (req as AuthenticatedRequest).user = null;
-          next();
+          request.user = null;
         }
       }
     } else {
       logger.warn("Access token verification failed", {
         error: err.message,
-        ip: req.ip,
+        ip: request.ip,
       });
       if (isRequired) {
-        res.status(403).json({
+        return reply.status(403).send({
           success: false,
           error: "인증에 실패했습니다.",
         });
       } else {
-        (req as AuthenticatedRequest).user = null;
-        next();
+        request.user = null;
       }
     }
   }
 }
 
-// 필수 인증 미들웨어
-export async function requiredAuthenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
-  await handleAuthentication(req, res, next, true);
+// 필수 인증 훅
+export async function requiredAuthenticate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  await handleAuthentication(request, reply, true);
 }
 
-// 선택적 인증 미들웨어
-export async function optionalAuthenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
-  await handleAuthentication(req, res, next, false);
+// 선택적 인증 훅
+export async function optionalAuthenticate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  await handleAuthentication(request, reply, false);
 }
 
-// 관리자 권한 확인 미들웨어
-export function requireOwner(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  if (!req.user?.isOwner) {
+// 관리자 권한 확인 훅
+export async function requireOwner(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  if (!request.user?.isOwner) {
     logger.warn("Owner access attempt by non-owner user", {
-      userId: req.user?.userId,
-      ip: req.ip,
+      userId: request.user?.userId,
+      ip: request.ip,
     });
-    res.status(403).json({
+    return reply.status(403).send({
       success: false,
       error: "블로그 소유자 권한이 필요합니다.",
     });
-    return;
   }
-  next();
 }

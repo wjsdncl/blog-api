@@ -1,391 +1,578 @@
-import express, { Request, Response } from "express";
-import { getChoseong } from "es-hangul";
-import { CreatePostSchema, UpdatePostSchema } from "../lib/schemas.js";
+import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
+import { z } from "zod";
 import { prisma } from "../lib/prismaClient.js";
-import { asyncHandler } from "../middleware/errorHandler.js";
-import { requiredAuthenticate, optionalAuthenticate } from "../middleware/auth.js";
-import { AuthenticatedRequest } from "../types/express.js";
-import { logger } from "../utils/logger.js";
+import { requiredAuthenticate, optionalAuthenticate, requireOwner } from "../middleware/auth.js";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
-const router = express.Router();
+const postsRoutes: FastifyPluginAsync = async (fastify) => {
+  // GET /posts - 게시글 목록 조회
+  const getPostsQuerySchema = z.object({
+    offset: z.string().optional().default("0"),
+    limit: z.string().optional().default("10"),
+    order: z.enum(["newest", "oldest", "popular"]).optional().default("newest"),
+    category: z.string().optional(),
+    tag: z.string().optional(),
+    search: z.string().optional(),
+    published: z.enum(["true", "false", "all"]).optional().default("true"),
+  });
 
-// GET /posts -> Get all posts
-router.get(
-  "/",
-  optionalAuthenticate,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const { offset = "0", limit = "10", order = "newest", category: categorySlug = "", tag: tagSlug = "", search = "" } = req.query;
+  fastify.get(
+    "/",
+    { preHandler: optionalAuthenticate },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const query = getPostsQuerySchema.parse(request.query);
+      const {
+        offset,
+        limit,
+        order,
+        category: categorySlug,
+        tag: tagSlug,
+        search,
+        published: publishedFilter,
+      } = query;
 
-    let orderBy: any;
-    switch (order) {
-      case "oldest":
-        orderBy = { createdAt: "asc" };
-        break;
-      case "newest":
-        orderBy = { createdAt: "desc" };
-        break;
-      case "like":
-        orderBy = { likesCount: "desc" };
-        break;
-      default:
-        orderBy = { createdAt: "desc" };
-    }
+      const isOwner = request.user?.role === "OWNER";
 
-    const isOwner = req.user?.isOwner;
+      // 정렬 조건
+      let orderBy: Prisma.PostOrderByWithRelationInput;
+      switch (order) {
+        case "oldest":
+          orderBy = { created_at: "asc" };
+          break;
+        case "popular":
+          orderBy = { like_count: "desc" };
+          break;
+        case "newest":
+        default:
+          orderBy = { created_at: "desc" };
+      }
 
-    const where: any = {
-      ...(categorySlug && { category: { slug: categorySlug } }),
-      ...(tagSlug && { tags: { some: { slug: tagSlug as string } } }),
-      ...(search && {
-        choseongTitle: {
-          contains: getChoseong(search as string).replace(/\s+/g, ""),
-          mode: "insensitive",
-        },
-      }),
-      ...(!isOwner && { isPrivate: false }),
-    };
+      // WHERE 조건
+      const where: Prisma.PostWhereInput = {
+        is_deleted: false,
+        ...(categorySlug && { category: { slug: categorySlug } }),
+        ...(tagSlug && { tags: { some: { slug: tagSlug } } }),
+        ...(search && {
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { content: { contains: search, mode: "insensitive" } },
+            { excerpt: { contains: search, mode: "insensitive" } },
+          ],
+        }),
+      };
 
-    const [totalCount, posts, categories] = await Promise.all([
-      prisma.post.count({ where }),
-      prisma.post.findMany({
-        where,
-        orderBy,
-        skip: parseInt(offset as string),
-        take: parseInt(limit as string),
-        include: {
-          category: { select: { name: true, slug: true } },
-          tags: { select: { name: true, slug: true } },
-          _count: { select: { comments: true, postLikes: true } },
-        },
-      }),
-      prisma.category.findMany({
-        include: {
-          _count: {
-            select: {
-              posts: {
-                where: {
-                  ...(!isOwner && { isPrivate: false }),
-                },
+      // 공개 상태 필터 (OWNER가 아니면 항상 published만)
+      if (!isOwner || publishedFilter === "true") {
+        where.published = true;
+      } else if (publishedFilter === "false") {
+        where.published = false;
+      }
+
+      const [totalCount, posts, categories] = await Promise.all([
+        prisma.post.count({ where }),
+        prisma.post.findMany({
+          where,
+          skip: parseInt(offset),
+          take: parseInt(limit),
+          orderBy,
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            excerpt: true,
+            cover_image: true,
+            published: true,
+            featured: true,
+            view_count: true,
+            like_count: true,
+            comment_count: true,
+            author_id: true,
+            category_id: true,
+            published_at: true,
+            created_at: true,
+            updated_at: true,
+            author: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
               },
             },
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                color: true,
+              },
+            },
+            tags: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                color: true,
+              },
+            },
+            post_likes: request.user?.id
+              ? {
+                  where: { user_id: request.user.id },
+                  select: { id: true },
+                }
+              : false,
           },
-        },
-      }),
-    ]);
+        }),
+        prisma.category.findMany({
+          where: { is_deleted: false },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            color: true,
+            post_count: true,
+          },
+          orderBy: { order: "asc" },
+        }),
+      ]);
 
-    // posts에 명확한 네이밍으로 변환
-    const postsWithCounts = posts.map((post) => ({
-      ...post,
-      commentsCount: post._count.comments,
-      likesCount: post._count.postLikes,
-      _count: undefined,
-    }));
+      const postsWithLikes = posts.map((post: any) => ({
+        ...post,
+        isLiked: Array.isArray(post.post_likes) && post.post_likes.length > 0,
+        post_likes: undefined,
+      }));
 
-    // categories에 명확한 네이밍으로 변환
-    const categoriesWithCounts = categories.map((category) => ({
-      id: category.id,
-      name: category.name,
-      slug: category.slug,
-      createdAt: category.createdAt,
-      postsCount: category._count.posts,
-    }));
-
-    res.json({
-      success: true,
-      data: postsWithCounts,
-      categories: categoriesWithCounts,
-      meta: {
-        pagination: {
-          offset: parseInt(offset as string),
-          limit: parseInt(limit as string),
-          total: totalCount,
-        },
-      },
-    });
-  })
-);
-
-// GET /posts/:slug -> Get a single post
-router.get(
-  "/:slug",
-  optionalAuthenticate,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const { slug } = req.params;
-    const userId = req.user?.id;
-    const isOwner = req.user?.isOwner;
-
-    const post = await prisma.post.findUnique({
-      where: { slug },
-      include: {
-        category: { select: { name: true, slug: true } },
-        tags: { select: { name: true, slug: true } },
-        _count: { select: { comments: true, postLikes: true } },
-      },
-    });
-
-    if (!post) {
-      res.status(404).json({ success: false, message: "Post not found" });
-      return;
-    }
-
-    // Private 포스트는 owner만 볼 수 있음
-    if (post.isPrivate && !isOwner) {
-      res.status(404).json({ success: false, message: "Post not found" });
-      return;
-    }
-
-    let isLiked = false;
-    // 로그인된 유저일 경우에만 좋아요 여부를 검사
-    if (userId) {
-      const existingLike = await prisma.postLike.findUnique({
-        where: {
-          postId_userId: { userId, postId: post.id },
-        },
-      });
-      isLiked = !!existingLike;
-    }
-
-    const postWithCounts = {
-      ...post,
-      commentsCount: post._count.comments,
-      likesCount: post._count.postLikes,
-      isLiked,
-      _count: undefined,
-    };
-
-    res.json({ success: true, data: postWithCounts });
-  })
-);
-
-// POST /posts -> 포스트 정보를 생성
-router.post(
-  "/",
-  requiredAuthenticate,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const { title, content, thumbnail, categoryId, tags = [], isPrivate = false } = req.body;
-
-    if (!req.user?.isOwner) {
-      res.status(403).json({ success: false, message: "Unauthorized" });
-      return;
-    }
-
-    // 고유한 슬러그 생성
-    let slugBase = title
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9가-힣ㄱ-ㅎ\s]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-");
-
-    let slug = slugBase;
-    let counter = 1;
-    while (await prisma.post.findUnique({ where: { slug } })) {
-      slug = `${slugBase}-${counter}`;
-      counter++;
-    }
-
-    const choseongTitle = getChoseong(title).replace(/\s+/g, "");
-
-    const newPost = await prisma.post.create({
-      data: {
-        title,
-        choseongTitle,
-        content,
-        slug,
-        ...(thumbnail && { thumbnail }),
-        ...(categoryId && { categoryId: parseInt(categoryId) }),
-        isPrivate,
-      },
-      include: {
-        category: { select: { name: true, slug: true } },
-        tags: { select: { name: true, slug: true } },
-        _count: { select: { comments: true, postLikes: true } },
-      },
-    });
-
-    // 태그 연결
-    if (tags.length > 0) {
-      await prisma.post.update({
-        where: { id: newPost.id },
+      return reply.send({
+        success: true,
         data: {
-          tags: {
-            connect: tags.map((tagId: number) => ({ id: tagId })),
-          },
+          posts: postsWithLikes,
+          totalCount,
+          categories,
         },
       });
     }
+  );
 
-    res.status(201).json({ success: true, data: newPost });
-  })
-);
+  // GET /posts/:slug - 단일 게시글 조회
+  const getPostParamsSchema = z.object({
+    slug: z.string(),
+  });
 
-// POST /posts/:id/like -> 특정 포스트에 좋아요를 누름
-router.post(
-  "/:id/like",
-  requiredAuthenticate,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const { id } = req.params;
-    const userId = req.user?.id;
-    const postId = parseInt(id);
+  fastify.get(
+    "/:slug",
+    { preHandler: optionalAuthenticate },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { slug } = getPostParamsSchema.parse(request.params);
+      const isOwner = request.user?.role === "OWNER";
 
-    if (!userId) {
-      res.status(401).json({ success: false, message: "Unauthorized" });
-      return;
-    }
-
-    if (!postId || isNaN(postId)) {
-      res.status(400).json({ success: false, message: "Invalid post ID" });
-      return;
-    }
-
-    // 트랜잭션을 사용하여 좋아요 처리와 포스트 업데이트를 원자적으로 수행
-    const result = await prisma.$transaction(async (prisma) => {
-      // 유저가 해당 포스트에 좋아요를 눌렀는지 확인
-      const existingLike = await prisma.postLike.findUnique({
+      const post = await prisma.post.findFirst({
         where: {
-          postId_userId: { userId, postId },
+          slug,
+          is_deleted: false,
+          ...(!isOwner && { published: true }),
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              color: true,
+              icon: true,
+            },
+          },
+          tags: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              color: true,
+            },
+          },
+          post_likes: request.user?.id
+            ? {
+                where: { user_id: request.user.id },
+                select: { id: true },
+              }
+            : false,
         },
       });
 
-      let isLiked;
-      let updatedPost;
-
-      if (existingLike) {
-        // 좋아요 취소
-        await prisma.postLike.delete({
-          where: {
-            postId_userId: { userId, postId },
-          },
+      if (!post) {
+        return reply.status(404).send({
+          success: false,
+          error: "게시글을 찾을 수 없습니다.",
         });
-
-        updatedPost = await prisma.post.update({
-          where: { id: postId },
-          data: { likesCount: { decrement: 1 } },
-          select: { id: true, title: true, likesCount: true },
-        });
-
-        isLiked = false;
-      } else {
-        // 좋아요 추가
-        await prisma.postLike.create({
-          data: {
-            userId,
-            postId,
-          },
-        });
-
-        updatedPost = await prisma.post.update({
-          where: { id: postId },
-          data: { likesCount: { increment: 1 } },
-          select: { id: true, title: true, likesCount: true },
-        });
-
-        isLiked = true;
       }
 
-      return { updatedPost, isLiked };
-    });
+      // 조회수 증가
+      await prisma.post.update({
+        where: { id: post.id },
+        data: { view_count: { increment: 1 } },
+      });
 
-    res.json({
-      success: true,
-      data: {
-        post: result.updatedPost,
-        isLiked: result.isLiked,
-      },
-    });
-  })
-);
+      const postWithLike = {
+        ...post,
+        isLiked: Array.isArray(post.post_likes) && post.post_likes.length > 0,
+        post_likes: undefined,
+      };
 
-// PATCH /posts/:id -> 특정 포스트 정보를 수정
-router.patch(
-  "/:id",
-  requiredAuthenticate,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const { title, content, thumbnail, categoryId, isPrivate } = req.body;
-    const id = Number(req.params.id);
-
-    if (!req.user?.isOwner) {
-      res.status(403).json({ success: false, message: "Unauthorized" });
-      return;
+      return reply.send({
+        success: true,
+        data: postWithLike,
+      });
     }
+  );
 
-    // 게시글 제목 수정 시, 슬러그도 수정
-    const existingPost = await prisma.post.findUnique({
-      where: { id },
-      select: { slug: true, title: true },
-    });
+  // POST /posts - 게시글 생성 (OWNER만)
+  const createPostBodySchema = z.object({
+    title: z.string().min(1),
+    content: z.string().min(1),
+    excerpt: z.string().optional(),
+    cover_image: z.string().url().optional(),
+    published: z.boolean().default(false),
+    featured: z.boolean().default(false),
+    category_id: z.string().uuid().optional(),
+    tag_ids: z.array(z.string().uuid()).optional(),
+  });
 
-    if (!existingPost) {
-      res.status(404).json({ success: false, message: "Post not found" });
-      return;
-    }
+  fastify.post(
+    "/",
+    { preHandler: [requiredAuthenticate, requireOwner] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = createPostBodySchema.parse(request.body);
+      const { title, content, excerpt, cover_image, published, featured, category_id, tag_ids } = body;
+      const author_id = request.user!.id;
 
-    let slug = existingPost.slug;
-    if (title && title !== existingPost.title) {
-      let slugBase = title
+      // slug 생성
+      const baseSlug = title
         .toLowerCase()
         .trim()
-        .replace(/[^a-z0-9가-힣ㄱ-ㅎ\s]/g, "")
+        .replace(/[^a-z0-9가-힣\s-]/g, "")
         .replace(/\s+/g, "-")
-        .replace(/-+/g, "-");
+        .substring(0, 100);
 
-      slug = slugBase;
+      let slug = baseSlug;
       let counter = 1;
-      while (await prisma.post.findFirst({ where: { slug, id: { not: id } } })) {
-        slug = `${slugBase}-${counter}`;
+      while (await prisma.post.findFirst({ where: { slug } })) {
+        slug = `${baseSlug}-${counter}`;
         counter++;
       }
+
+      const post = await prisma.post.create({
+        data: {
+          title,
+          slug,
+          content,
+          excerpt,
+          cover_image,
+          published,
+          featured,
+          author_id: author_id!,
+          category_id,
+          published_at: published ? new Date() : null,
+          ...(tag_ids &&
+            tag_ids.length > 0 && {
+              tags: {
+                connect: tag_ids.map((id) => ({ id })),
+              },
+            }),
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
+          category: true,
+          tags: true,
+        },
+      });
+
+      // 카테고리 post_count 증가
+      if (category_id) {
+        await prisma.category.update({
+          where: { id: category_id },
+          data: { post_count: { increment: 1 } },
+        });
+      }
+
+      // 태그 post_count 증가
+      if (tag_ids && tag_ids.length > 0) {
+        await prisma.tag.updateMany({
+          where: { id: { in: tag_ids } },
+          data: { post_count: { increment: 1 } },
+        });
+      }
+
+      return reply.status(201).send({
+        success: true,
+        data: post,
+      });
     }
+  );
 
-    const choseongTitle = title ? getChoseong(title).replace(/\s+/g, "") : undefined;
+  // PATCH /posts/:id - 게시글 수정 (OWNER만)
+  const updatePostParamsSchema = z.object({
+    id: z.string().uuid(),
+  });
 
-    const updatedPost = await prisma.post.update({
-      where: { id },
-      data: {
-        ...(title && { title }),
-        ...(content && { content }),
-        ...(thumbnail !== undefined && { thumbnail: thumbnail || null }),
-        ...(categoryId !== undefined && { categoryId: categoryId ? parseInt(categoryId) : null }),
-        ...(isPrivate !== undefined && { isPrivate }),
-        ...(choseongTitle && { choseongTitle }),
-        slug,
-      },
-      include: {
-        category: { select: { name: true, slug: true } },
-        tags: { select: { name: true, slug: true } },
-        _count: { select: { comments: true, postLikes: true } },
-      },
-    });
+  const updatePostBodySchema = z.object({
+    title: z.string().min(1).optional(),
+    content: z.string().min(1).optional(),
+    excerpt: z.string().optional(),
+    cover_image: z.string().url().optional().nullable(),
+    published: z.boolean().optional(),
+    featured: z.boolean().optional(),
+    category_id: z.string().uuid().optional().nullable(),
+    tag_ids: z.array(z.string().uuid()).optional(),
+  });
 
-    const postWithCounts = {
-      ...updatedPost,
-      commentsCount: updatedPost._count.comments,
-      likesCount: updatedPost._count.postLikes,
-      _count: undefined,
-    };
+  fastify.patch(
+    "/:id",
+    { preHandler: [requiredAuthenticate, requireOwner] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = updatePostParamsSchema.parse(request.params);
+      const body = updatePostBodySchema.parse(request.body);
 
-    res.json({ success: true, data: postWithCounts });
-  })
-);
+      const existingPost = await prisma.post.findUnique({
+        where: { id },
+        include: { tags: true },
+      });
 
-// DELETE /posts/:id -> 특정 포스트 정보를 삭제
-router.delete(
-  "/:id",
-  requiredAuthenticate,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const id = Number(req.params.id);
+      if (!existingPost || existingPost.is_deleted) {
+        return reply.status(404).send({
+          success: false,
+          error: "게시글을 찾을 수 없습니다.",
+        });
+      }
 
-    if (!req.user?.isOwner) {
-      res.status(403).json({ success: false, message: "Unauthorized" });
-      return;
+      const { title, content, excerpt, cover_image, published, featured, category_id, tag_ids } = body;
+
+      // slug 재생성 (title 변경 시)
+      let slug = existingPost.slug;
+      if (title && title !== existingPost.title) {
+        const baseSlug = title
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9가-힣\s-]/g, "")
+          .replace(/\s+/g, "-")
+          .substring(0, 100);
+
+        slug = baseSlug;
+        let counter = 1;
+        while (await prisma.post.findFirst({ where: { slug, id: { not: id } } })) {
+          slug = `${baseSlug}-${counter}`;
+          counter++;
+        }
+      }
+
+      // 카테고리 변경 처리
+      const oldCategoryId = existingPost.category_id;
+      const newCategoryId = category_id !== undefined ? category_id : oldCategoryId;
+
+      if (oldCategoryId !== newCategoryId) {
+        if (oldCategoryId) {
+          await prisma.category.update({
+            where: { id: oldCategoryId },
+            data: { post_count: { decrement: 1 } },
+          });
+        }
+        if (newCategoryId) {
+          await prisma.category.update({
+            where: { id: newCategoryId },
+            data: { post_count: { increment: 1 } },
+          });
+        }
+      }
+
+      // 태그 변경 처리
+      if (tag_ids !== undefined) {
+        const oldTagIds = existingPost.tags.map((t: any) => t.id);
+        const removedTags = oldTagIds.filter((id: string) => !tag_ids.includes(id));
+        const addedTags = tag_ids.filter((id) => !oldTagIds.includes(id));
+
+        if (removedTags.length > 0) {
+          await prisma.tag.updateMany({
+            where: { id: { in: removedTags } },
+            data: { post_count: { decrement: 1 } },
+          });
+        }
+
+        if (addedTags.length > 0) {
+          await prisma.tag.updateMany({
+            where: { id: { in: addedTags } },
+            data: { post_count: { increment: 1 } },
+          });
+        }
+      }
+
+      const post = await prisma.post.update({
+        where: { id },
+        data: {
+          ...(title && { title }),
+          ...(title && { slug }),
+          ...(content !== undefined && { content }),
+          ...(excerpt !== undefined && { excerpt }),
+          ...(cover_image !== undefined && { cover_image }),
+          ...(published !== undefined && {
+            published,
+            published_at: published && !existingPost.published ? new Date() : existingPost.published_at,
+          }),
+          ...(featured !== undefined && { featured }),
+          ...(category_id !== undefined && { category_id }),
+          ...(tag_ids !== undefined && {
+            tags: {
+              set: tag_ids.map((id) => ({ id })),
+            },
+          }),
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
+          category: true,
+          tags: true,
+        },
+      });
+
+      return reply.send({
+        success: true,
+        data: post,
+      });
     }
+  );
 
-    await prisma.post.delete({
-      where: { id },
-    });
+  // DELETE /posts/:id - 게시글 삭제 (OWNER만, soft delete)
+  const deletePostParamsSchema = z.object({
+    id: z.string().uuid(),
+  });
 
-    res.status(204).send();
-  })
-);
+  fastify.delete(
+    "/:id",
+    { preHandler: [requiredAuthenticate, requireOwner] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = deletePostParamsSchema.parse(request.params);
 
-export default router;
+      const existingPost = await prisma.post.findUnique({
+        where: { id },
+        include: { tags: true },
+      });
+
+      if (!existingPost || existingPost.is_deleted) {
+        return reply.status(404).send({
+          success: false,
+          error: "게시글을 찾을 수 없습니다.",
+        });
+      }
+
+      await prisma.post.update({
+        where: { id },
+        data: {
+          is_deleted: true,
+          deleted_at: new Date(),
+        },
+      });
+
+      // 카테고리 post_count 감소
+      if (existingPost.category_id) {
+        await prisma.category.update({
+          where: { id: existingPost.category_id },
+          data: { post_count: { decrement: 1 } },
+        });
+      }
+
+      // 태그 post_count 감소
+      if (existingPost.tags.length > 0) {
+        await prisma.tag.updateMany({
+          where: { id: { in: existingPost.tags.map((t: any) => t.id) } },
+          data: { post_count: { decrement: 1 } },
+        });
+      }
+
+      return reply.send({
+        success: true,
+        message: "게시글이 삭제되었습니다.",
+      });
+    }
+  );
+
+  // POST /posts/:id/like - 좋아요 토글
+  const likePostParamsSchema = z.object({
+    id: z.string().uuid(),
+  });
+
+  fastify.post(
+    "/:id/like",
+    { preHandler: requiredAuthenticate },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id: postId } = likePostParamsSchema.parse(request.params);
+      const userId = request.user!.id!;
+
+      const result = await prisma.$transaction(async (tx) => {
+        const existingLike = await tx.postLike.findUnique({
+          where: {
+            user_id_post_id: { user_id: userId, post_id: postId },
+          },
+        });
+
+        let liked: boolean;
+        let updatedPost;
+
+        if (existingLike) {
+          // 좋아요 취소
+          await tx.postLike.delete({
+            where: {
+              user_id_post_id: { user_id: userId, post_id: postId },
+            },
+          });
+
+          updatedPost = await tx.post.update({
+            where: { id: postId },
+            data: { like_count: { decrement: 1 } },
+            select: { like_count: true },
+          });
+
+          liked = false;
+        } else {
+          // 좋아요 추가
+          await tx.postLike.create({
+            data: {
+              user_id: userId,
+              post_id: postId,
+            },
+          });
+
+          updatedPost = await tx.post.update({
+            where: { id: postId },
+            data: { like_count: { increment: 1 } },
+            select: { like_count: true },
+          });
+
+          liked = true;
+        }
+
+        return { liked, likeCount: updatedPost.like_count };
+      });
+
+      return reply.send({
+        success: true,
+        data: result,
+      });
+    }
+  );
+};
+
+export default postsRoutes;

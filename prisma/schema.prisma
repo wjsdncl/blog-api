@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,189 +10,225 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// 사용자 기본 정보
 model User {
-  id           String        @id @default(uuid())       /// @zod.string.uuid()
-  email        String        @unique                    /// @zod.string.email()
-  name         String        @db.VarChar(100)           /// @zod.string.min(1).max(100)
-  createdAt    DateTime      @default(now())            /// @zod.date()
-  updatedAt    DateTime      @updatedAt                 /// @zod.date()
-  isOwner      Boolean       @default(false)            /// @zod.boolean()
-  comments     Comment[]                                // 작성한 댓글들
-  commentLikes CommentLike[]                            // 댓글 좋아요들
-  postLikes    PostLike[]                               // 포스트 좋아요들
-
+  id         String   @id @default(uuid())
+  username   String   @unique
+  email      String   @unique
+  role       Role     @default(USER)
+  
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  
+  // 관계
+  auth          Auth?
+  posts         Post[]
+  comments      Comment[]
+  post_likes    PostLike[]
+  comment_likes CommentLike[]
+  
   @@index([email])
-  @@index([isOwner])
-  @@index([createdAt])
+  @@index([username])
   @@map("users")
 }
 
-model Post {
-  id            Int           @id @default(autoincrement()) /// @zod.number.int().positive()
-  thumbnail     String?       @db.VarChar(500)             /// @zod.string.url().optional()
-  categoryId    Int?                                       /// @zod.number.int().positive().optional()
-  title         String        @db.VarChar(200)             /// @zod.string.min(1).max(200)
-  content       String        @db.Text                     /// @zod.string.min(1)
-  likesCount    Int           @default(0)                  /// @zod.number.int().min(0)
-  views         Int           @default(0)                  /// @zod.number.int().min(0)
-  createdAt     DateTime      @default(now())              /// @zod.date()
-  updatedAt     DateTime      @updatedAt                   /// @zod.date()
-  slug          String        @unique @db.VarChar(255)     /// @zod.string.min(1).max(255)
-  choseongTitle String        @db.VarChar(200)             /// @zod.string.max(200)
-  isPrivate     Boolean       @default(false)              /// @zod.boolean()
-  comments      Comment[]                                  // 댓글들
-  postLikes     PostLike[]                                 // 좋아요들
-  category      Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull) // 카테고리
-  tags          Tag[]                                      // 태그들
+// 인증 정보 (분리)
+model Auth {
+  id            String   @id @default(uuid())
+  user_id       String   @unique
+  
+  // 로컬 인증
+  password_hash String?
+  
+  // OAuth 인증 (선택사항)
+  provider      String?  // google, github 등
+  provider_id   String?  // OAuth provider의 user ID
+  
+  // 토큰 관리
+  refresh_token String?  @db.Text
+  
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  
+  // 관계
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@unique([provider, provider_id])
+  @@index([user_id])
+  @@map("auth")
+}
 
-  @@index([createdAt, categoryId])
+// 게시글
+model Post {
+  id            String    @id @default(uuid())
+  title         String
+  slug          String    @unique
+  content       String    @db.Text
+  excerpt       String?   @db.Text
+  cover_image   String?
+  
+  published     Boolean   @default(false)
+  featured      Boolean   @default(false)
+  is_deleted    Boolean   @default(false)
+  
+  view_count    Int       @default(0)
+  like_count    Int       @default(0)
+  comment_count Int       @default(0)
+  
+  author_id     String
+  category_id   String?
+  
+  published_at  DateTime?
+  deleted_at    DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  
+  // 관계
+  author        User         @relation(fields: [author_id], references: [id], onDelete: Cascade)
+  category      Category?    @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  tags          Tag[]
+  comments      Comment[]
+  post_likes    PostLike[]
+  
+  // 단일 인덱스
+  @@index([author_id])
+  @@index([category_id])
   @@index([slug])
-  @@index([choseongTitle])
-  @@index([views])
-  @@index([likesCount])
+  @@index([is_deleted])
+  
+  // 복합 인덱스 (자주 사용하는 쿼리 조합)
+  @@index([published, created_at])           // 공개글 최신순 조회
+  @@index([published, featured, created_at]) // 주요 공개글 조회
+  @@index([author_id, published])            // 특정 작성자의 공개글
+  @@index([category_id, published])          // 특정 카테고리의 공개글
+  @@index([is_deleted, published])           // 삭제되지 않은 공개글
+  
   @@map("posts")
 }
 
-model PostLike {
-  id        Int           @id @default(autoincrement())   // 좋아요 고유 ID
-  userId    String                                        // 사용자 ID (로그인 필수)
-  postId    Int                                           // 포스트 ID
-  createdAt DateTime      @default(now())                 // 좋아요 생성일시
-  post      Post          @relation(fields: [postId], references: [id], onDelete: Cascade) // 포스트
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade) // 사용자
-
-  @@unique([postId, userId])
-  @@index([postId])
-  @@index([userId])
-  @@index([createdAt])
-  @@map("post_likes")
-}
-
-model Comment {
-  id              Int           @id @default(autoincrement()) /// @zod.number.int().positive()
-  content         String        @db.Text                     /// @zod.string.min(1)
-  likesCount      Int           @default(0)                  /// @zod.number.int().min(0)
-  createdAt       DateTime      @default(now())              /// @zod.date()
-  updatedAt       DateTime      @updatedAt                   /// @zod.date()
-  userId          String                                     /// @zod.string.uuid()
-  postId          Int                                        /// @zod.number.int().positive()
-  parentCommentId Int?                                       /// @zod.number.int().positive().optional()
-  isDeleted       Boolean       @default(false)              /// @zod.boolean()
-  isEdited        Boolean       @default(false)              /// @zod.boolean()
-  depth           Int           @default(0)                  /// @zod.number.int().min(0).max(3)
-  parentComment   Comment?      @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull) // 부모 댓글
-  replies         Comment[]     @relation("CommentReplies")  // 대댓글들
-  post            Post          @relation(fields: [postId], references: [id], onDelete: Cascade)     // 포스트
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)     // 사용자
-  commentLikes    CommentLike[]                              // 댓글 좋아요들
-
-  @@index([postId, createdAt])
-  @@index([userId])
-  @@index([parentCommentId])
-  @@index([isDeleted])
-  @@index([depth])
-  @@index([postId, parentCommentId])
-  @@index([likesCount])
-  @@index([postId, isDeleted, createdAt])
-  @@index([parentCommentId, depth, createdAt])
-  @@map("comments")
-}
-
-model CommentLike {
-  id        Int           @id @default(autoincrement())   // 댓글 좋아요 고유 ID
-  userId    String                                        // 사용자 ID (로그인 필수)
-  commentId Int                                           // 댓글 ID
-  createdAt DateTime      @default(now())                 // 좋아요 생성일시
-  comment   Comment       @relation(fields: [commentId], references: [id], onDelete: Cascade) // 댓글
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)   // 사용자
-
-  @@unique([commentId, userId])
-  @@index([commentId])
-  @@index([userId])
-  @@index([createdAt])
-  @@map("comment_likes")
-}
-
+// 카테고리
 model Category {
-  id          Int           @id @default(autoincrement())   /// @zod.number.int().positive()
-  name        String        @unique @db.VarChar(50)         /// @zod.string.min(1).max(50)
-  slug        String        @unique @db.VarChar(100)        /// @zod.string.min(1).max(100)
-  createdAt   DateTime      @default(now())                 /// @zod.date()
-  posts       Post[]                                        // 이 카테고리의 포스트들
-  projects    Project[]                                     // 이 카테고리의 프로젝트들
-
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  color       String?  // UI 색상 (예: #3B82F6) - 애플리케이션에서 정규식 검증 필수
+  icon        String?  // 아이콘 이름 또는 URL
+  order       Int      @default(0)
+  is_deleted  Boolean  @default(false)
+  
+  post_count  Int      @default(0)
+  
+  deleted_at  DateTime?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // 관계
+  posts       Post[]
+  
   @@index([slug])
+  @@index([order])
+  @@index([is_deleted])
+  @@index([is_deleted, order])  // 삭제되지 않은 카테고리 정렬 순서대로 조회
   @@map("categories")
 }
 
+// 태그
 model Tag {
-  id        Int           @id @default(autoincrement())   /// @zod.number.int().positive()
-  name      String        @unique @db.VarChar(50)         /// @zod.string.min(1).max(50)
-  slug      String        @unique @db.VarChar(100)        /// @zod.string.min(1).max(100)
-  createdAt DateTime      @default(now())                 /// @zod.date()
-  posts     Post[]                                        // 이 태그가 붙은 포스트들
-  projects  Project[]                                     // 이 태그가 붙은 프로젝트들
-
+  id         String   @id @default(uuid())
+  name       String   @unique
+  slug       String   @unique  // 애플리케이션에서 URL-safe 검증 필수
+  color      String?  // UI 색상 - 애플리케이션에서 정규식 검증 필수
+  is_deleted Boolean  @default(false)
+  
+  post_count Int      @default(0)
+  
+  deleted_at DateTime?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  
+  // 관계
+  posts      Post[]
+  
   @@index([slug])
+  @@index([name])
+  @@index([is_deleted])
+  @@index([is_deleted, post_count])  // 삭제되지 않은 인기 태그 조회
   @@map("tags")
 }
 
-enum ProjectStatus {
-  PLANNING     // 기획 중
-  IN_PROGRESS  // 진행 중
-  COMPLETED    // 완료
-  PAUSED       // 일시 중단
-  ARCHIVED     // 보관됨
+// 댓글 (Self-Referencing으로 답글 지원)
+model Comment {
+  id         String    @id @default(uuid())
+  content    String    @db.Text
+  
+  post_id    String
+  author_id  String
+  parent_id  String?   // NULL이면 댓글, 값 있으면 답글
+  
+  is_deleted Boolean   @default(false)
+  deleted_at DateTime?
+  like_count Int       @default(0)
+  
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  
+  // 관계
+  post           Post          @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  author         User          @relation(fields: [author_id], references: [id], onDelete: Cascade)
+  parent         Comment?      @relation("CommentReplies", fields: [parent_id], references: [id], onDelete: Cascade)
+  replies        Comment[]     @relation("CommentReplies")
+  comment_likes  CommentLike[]
+  
+  // 단일 인덱스
+  @@index([post_id])
+  @@index([author_id])
+  @@index([parent_id])
+  @@index([is_deleted])
+  
+  // 복합 인덱스
+  @@index([post_id, is_deleted, created_at])  // 특정 게시글의 삭제되지 않은 댓글 조회
+  @@index([author_id, is_deleted])            // 특정 사용자의 삭제되지 않은 댓글
+  
+  @@map("comments")
 }
 
-model Project {
-  id          Int            @id @default(autoincrement())  // 프로젝트 고유 ID
-  title       String         @db.VarChar(200)               // 프로젝트 제목
-  slug        String         @unique @db.VarChar(255)       // SEO 친화적 URL
-  description String         @db.Text                       // 프로젝트 설명
-  content     String         @db.Text                       // 프로젝트 상세 내용
-  images      String[]                                      // 프로젝트 이미지 URLs
-  summary     String[]                                      // 프로젝트 요약 포인트들
-  status      ProjectStatus  @default(COMPLETED)            // 프로젝트 상태
-  categoryId  Int?                                          // 카테고리 ID
-  links       ProjectLink[]                                 // 프로젝트 관련 링크들
-  startDate   DateTime                                      // 프로젝트 시작일
-  endDate     DateTime?                                     // 프로젝트 종료일 (진행중인 경우 null)
-  isPersonal  Boolean        @default(true)                 // 개인 프로젝트 여부
-  isActive    Boolean        @default(true)                 // 활성 상태 (포트폴리오 노출 여부)
-  priority    Int            @default(0)                    // 우선순위 (높을수록 먼저 표시)
-  createdAt   DateTime       @default(now())                // 생성일시
-  updatedAt   DateTime       @updatedAt                     // 수정일시
-  category    Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull) // 카테고리
-  tags        Tag[]                                         // 태그들
-  techStack   TechStack[]    @relation("ProjectTechStack")  // 기술 스택들
-
-  @@index([slug])
-  @@index([isActive, priority])
-  @@index([status])
-  @@index([categoryId])
-  @@index([startDate])
-  @@index([createdAt])
-  @@map("projects")
+// 게시글 좋아요
+model PostLike {
+  id         String   @id @default(uuid())
+  user_id    String
+  post_id    String
+  created_at DateTime @default(now())
+  
+  // 관계
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  post       Post     @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  
+  @@unique([user_id, post_id])
+  @@index([post_id, created_at])  // 특정 게시글의 최근 좋아요 조회
+  @@index([user_id, created_at])  // 특정 사용자의 최근 좋아요 조회
+  @@map("post_likes")
 }
 
-model TechStack {
-  id          Int       @id @default(autoincrement())     // 기술 스택 고유 ID
-  name        String    @unique @db.VarChar(50)           // 기술 이름 (예: "React", "Node.js", "TypeScript")
-  createdAt   DateTime  @default(now())                   // 생성일시
-  projects    Project[] @relation("ProjectTechStack")     // 이 기술을 사용한 프로젝트들
-
-  @@map("tech_stacks")
+// 댓글 좋아요
+model CommentLike {
+  id         String   @id @default(uuid())
+  user_id    String
+  comment_id String
+  created_at DateTime @default(now())
+  
+  // 관계
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  comment    Comment  @relation(fields: [comment_id], references: [id], onDelete: Cascade)
+  
+  @@unique([user_id, comment_id])
+  @@index([comment_id, created_at])  // 특정 댓글의 최근 좋아요 조회
+  @@index([user_id, created_at])     // 특정 사용자의 최근 좋아요 조회
+  @@map("comment_likes")
 }
 
-model ProjectLink {
-  id        Int     @id @default(autoincrement()) // 링크 고유 ID
-  title     String  @db.VarChar(100)              // 링크 제목 (예: "GitHub", "Demo", "Design")
-  url       String  @db.VarChar(2083)             // 링크 URL
-  icon      String? @db.VarChar(500)              // 링크 아이콘 URL (선택적)
-  projectId Int                                   // 프로젝트 ID
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade) // 프로젝트
-
-  @@index([projectId])
-  @@map("project_links")
+// Enum
+enum Role {
+  USER
+  OWNER
 }

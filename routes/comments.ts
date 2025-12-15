@@ -1,426 +1,322 @@
-import express, { Request, Response } from "express";
-import { CreateCommentSchema, UpdateCommentSchema } from "../lib/schemas.js";
+import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
+import { z } from "zod";
 import { prisma } from "../lib/prismaClient.js";
-import { asyncHandler } from "../middleware/errorHandler.js";
 import { requiredAuthenticate, optionalAuthenticate } from "../middleware/auth.js";
-import { AuthenticatedRequest } from "../types/express.js";
+import type { PrismaClient } from "@prisma/client";
 
-const router = express.Router();
+const commentsRoutes: FastifyPluginAsync = async (fastify) => {
+  // GET /comments - 댓글 목록 조회
+  const getCommentsQuerySchema = z.object({
+    postId: z.string().uuid(),
+    offset: z.string().optional().default("0"),
+    limit: z.string().optional().default("20"),
+  });
 
-// GET /comments -> 댓글 목록 조회
-router.get(
-  "/",
-  optionalAuthenticate,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const { postId, offset = "0", limit = "10" } = req.query;
+  fastify.get(
+    "/",
+    { preHandler: optionalAuthenticate },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { postId, offset, limit } = getCommentsQuerySchema.parse(request.query);
 
-    if (!postId) {
-      res.status(400).json({
-        success: false,
-        error: "postId가 필요합니다.",
-      });
-      return;
-    }
-
-    const postIdNum = parseInt(postId as string);
-
-    const [totalCount, comments] = await Promise.all([
-      prisma.comment.count({
-        where: {
-          postId: postIdNum,
-        },
-      }),
-      prisma.comment.findMany({
-        where: {
-          postId: postIdNum,
-          parentCommentId: null, // 최상위 댓글만
-        },
-        skip: parseInt(offset as string),
-        take: parseInt(limit as string),
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-            },
+      const [totalCount, comments] = await Promise.all([
+        prisma.comment.count({
+          where: {
+            post_id: postId,
+            is_deleted: false,
           },
-          replies: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-              _count: {
-                select: {
-                  commentLikes: true,
-                },
-              },
-              commentLikes: req.user?.id
-                ? {
-                    where: {
-                      userId: req.user.id,
-                    },
-                    select: {
-                      id: true,
-                    },
-                  }
-                : false,
-              replies: {
-                include: {
-                  user: {
-                    select: {
-                      id: true,
-                      name: true,
-                    },
-                  },
-                  _count: {
-                    select: {
-                      commentLikes: true,
-                    },
-                  },
-                  commentLikes: req.user?.id
-                    ? {
-                        where: {
-                          userId: req.user.id,
-                        },
-                        select: {
-                          id: true,
-                        },
-                      }
-                    : false,
-                  replies: {
-                    include: {
-                      user: {
-                        select: {
-                          id: true,
-                          name: true,
-                        },
-                      },
-                      _count: {
-                        select: {
-                          commentLikes: true,
-                        },
-                      },
-                      commentLikes: req.user?.id
-                        ? {
-                            where: {
-                              userId: req.user.id,
-                            },
-                            select: {
-                              id: true,
-                            },
-                          }
-                        : false,
-                    },
-                    orderBy: {
-                      createdAt: "asc",
-                    },
-                  },
-                },
-                orderBy: {
-                  createdAt: "asc",
-                },
-              },
-            },
-            orderBy: {
-              createdAt: "asc",
-            },
+        }),
+        prisma.comment.findMany({
+          where: {
+            post_id: postId,
+            parent_id: null, // 최상위 댓글만
+            is_deleted: false,
           },
-          _count: {
-            select: {
-              commentLikes: true,
-            },
-          },
-          commentLikes: req.user?.id
-            ? {
-                where: {
-                  userId: req.user.id,
-                },
-                select: {
-                  id: true,
-                },
-              }
-            : false,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      }),
-    ]);
-
-    // 댓글에 명확한 네이밍으로 변환 (재귀적으로 처리)
-    const transformComment = (comment: any): any => {
-      const { _count, commentLikes, replies, ...commentWithoutCount } = comment;
-      return {
-        ...commentWithoutCount,
-        likesCount: _count.commentLikes,
-        isLiked: commentLikes?.length > 0 || false,
-        replies: replies ? replies.map(transformComment) : [],
-      };
-    };
-
-    const commentsWithCounts = comments.map(transformComment);
-
-    res.json({
-      success: true,
-      data: commentsWithCounts,
-      meta: {
-        totalCount,
-        offset: parseInt(offset as string),
-        limit: parseInt(limit as string),
-      },
-    });
-  })
-);
-
-// POST /comments -> 댓글 생성
-router.post(
-  "/",
-  requiredAuthenticate,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const validatedData = CreateCommentSchema.parse(req.body);
-
-    if (!req.user?.id) {
-      res.status(401).json({
-        success: false,
-        error: "인증이 필요합니다.",
-      });
-      return;
-    }
-
-    const comment = await prisma.comment.create({
-      data: {
-        ...validatedData,
-        userId: req.user.id,
-        // 부모 댓글이 있는 경우 depth 계산
-        depth: validatedData.parentCommentId
-          ? await prisma.comment
-              .findUnique({
-                where: { id: validatedData.parentCommentId },
-                select: { depth: true },
-              })
-              .then((parent) => (parent?.depth || 0) + 1)
-          : 0,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            commentLikes: true,
-          },
-        },
-      },
-    });
-
-    const { _count, ...commentWithoutCount } = comment;
-    const commentWithCounts = {
-      ...commentWithoutCount,
-      likesCount: _count.commentLikes,
-      isLiked: false, // 새로 생성된 댓글이므로 항상 false
-    };
-
-    res.status(201).json({
-      success: true,
-      data: commentWithCounts,
-    });
-  })
-);
-
-// PATCH /comments/:id -> 댓글 수정
-router.patch(
-  "/:id",
-  requiredAuthenticate,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const { id } = req.params;
-    const validatedData = UpdateCommentSchema.parse(req.body);
-
-    const existingComment = await prisma.comment.findUnique({
-      where: { id: parseInt(id) },
-    });
-
-    if (!existingComment) {
-      res.status(404).json({
-        success: false,
-        error: "댓글을 찾을 수 없습니다.",
-      });
-      return;
-    }
-
-    // 작성자 또는 관리자만 수정 가능
-    if (existingComment.userId !== req.user?.id && !req.user?.isOwner) {
-      res.status(403).json({
-        success: false,
-        error: "댓글 수정 권한이 없습니다.",
-      });
-      return;
-    }
-
-    const updatedComment = await prisma.comment.update({
-      where: { id: parseInt(id) },
-      data: {
-        ...validatedData,
-        isEdited: true,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            commentLikes: true,
-          },
-        },
-        commentLikes: req.user?.id
-          ? {
-              where: {
-                userId: req.user.id,
-              },
+          skip: parseInt(offset),
+          take: parseInt(limit),
+          orderBy: { created_at: "desc" },
+          include: {
+            author: {
               select: {
                 id: true,
+                username: true,
               },
-            }
-          : false,
-      },
-    });
+            },
+            replies: {
+              where: { is_deleted: false },
+              orderBy: { created_at: "asc" },
+              include: {
+                author: {
+                  select: {
+                    id: true,
+                    username: true,
+                  },
+                },
+                comment_likes: request.user?.id
+                  ? {
+                      where: { user_id: request.user.id },
+                      select: { id: true },
+                    }
+                  : false,
+              },
+            },
+            comment_likes: request.user?.id
+              ? {
+                  where: { user_id: request.user.id },
+                  select: { id: true },
+                }
+              : false,
+          },
+        }),
+      ]);
 
-    const { _count, commentLikes, ...commentWithoutCount } = updatedComment;
-    const commentWithCounts = {
-      ...commentWithoutCount,
-      likesCount: _count.commentLikes,
-      isLiked: commentLikes?.length > 0 || false,
-    };
+      const commentsWithLikes = comments.map((comment: any) => ({
+        ...comment,
+        isLiked: Array.isArray(comment.comment_likes) && comment.comment_likes.length > 0,
+        replies: comment.replies.map((reply: any) => ({
+          ...reply,
+          isLiked: Array.isArray(reply.comment_likes) && reply.comment_likes.length > 0,
+          comment_likes: undefined,
+        })),
+        comment_likes: undefined,
+      }));
 
-    res.json({
-      success: true,
-      data: commentWithCounts,
-    });
-  })
-);
-
-// DELETE /comments/:id -> 댓글 삭제
-router.delete(
-  "/:id",
-  requiredAuthenticate,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const { id } = req.params;
-
-    const existingComment = await prisma.comment.findUnique({
-      where: { id: parseInt(id) },
-    });
-
-    if (!existingComment) {
-      res.status(404).json({
-        success: false,
-        error: "댓글을 찾을 수 없습니다.",
+      return reply.send({
+        success: true,
+        data: {
+          comments: commentsWithLikes,
+          totalCount,
+        },
       });
-      return;
     }
+  );
 
-    // 작성자 또는 관리자만 삭제 가능
-    if (existingComment.userId !== req.user?.id && !req.user?.isOwner) {
-      res.status(403).json({
-        success: false,
-        error: "댓글 삭제 권한이 없습니다.",
-      });
-      return;
-    }
+  // POST /comments - 댓글 생성
+  const createCommentBodySchema = z.object({
+    post_id: z.string().uuid(),
+    content: z.string().min(1),
+    parent_id: z.string().uuid().optional(),
+  });
 
-    await prisma.comment.delete({
-      where: { id: parseInt(id) },
-    });
+  fastify.post(
+    "/",
+    { preHandler: requiredAuthenticate },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = createCommentBodySchema.parse(request.body);
+      const { post_id, content, parent_id } = body;
+      const author_id = request.user!.id;
 
-    res.json({
-      success: true,
-      message: "댓글이 삭제되었습니다.",
-    });
-  })
-);
+      // parent_id가 있으면 답글
+      if (parent_id) {
+        const parentComment = await prisma.comment.findUnique({
+          where: { id: parent_id },
+        });
 
-// POST /comments/:id/like -> 댓글 좋아요/취소
-router.post(
-  "/:id/like",
-  requiredAuthenticate,
-  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const { id } = req.params;
-    const userId = req.user?.id;
-    const commentId = parseInt(id);
+        if (!parentComment || parentComment.is_deleted) {
+          return reply.status(404).send({
+            success: false,
+            error: "부모 댓글을 찾을 수 없습니다.",
+          });
+        }
+      }
 
-    if (!userId) {
-      res.status(401).json({ success: false, message: "Unauthorized" });
-      return;
-    }
-
-    if (!commentId || isNaN(commentId)) {
-      res.status(400).json({ success: false, message: "Invalid comment ID" });
-      return;
-    }
-
-    // 트랜잭션을 사용하여 좋아요 처리와 댓글 업데이트를 원자적으로 수행
-    const result = await prisma.$transaction(async (prisma) => {
-      // 유저가 해당 댓글에 좋아요를 눌렀는지 확인
-      const existingLike = await prisma.commentLike.findUnique({
-        where: {
-          commentId_userId: { userId, commentId },
+      const comment = await prisma.comment.create({
+        data: {
+          post_id,
+          author_id: author_id!,
+          content,
+          parent_id,
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+            },
+          },
         },
       });
 
-      let isLiked;
-      let updatedComment;
+      // 게시글의 comment_count 증가
+      await prisma.post.update({
+        where: { id: post_id },
+        data: { comment_count: { increment: 1 } },
+      });
 
-      if (existingLike) {
-        // 좋아요 취소
-        await prisma.commentLike.delete({
-          where: {
-            commentId_userId: { userId, commentId },
-          },
+      return reply.status(201).send({
+        success: true,
+        data: comment,
+      });
+    }
+  );
+
+  // PATCH /comments/:id - 댓글 수정
+  const updateCommentParamsSchema = z.object({
+    id: z.string().uuid(),
+  });
+
+  const updateCommentBodySchema = z.object({
+    content: z.string().min(1),
+  });
+
+  fastify.patch(
+    "/:id",
+    { preHandler: requiredAuthenticate },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = updateCommentParamsSchema.parse(request.params);
+      const { content } = updateCommentBodySchema.parse(request.body);
+
+      const existingComment = await prisma.comment.findUnique({
+        where: { id },
+      });
+
+      if (!existingComment || existingComment.is_deleted) {
+        return reply.status(404).send({
+          success: false,
+          error: "댓글을 찾을 수 없습니다.",
         });
-
-        updatedComment = await prisma.comment.update({
-          where: { id: commentId },
-          data: { likesCount: { decrement: 1 } },
-          select: { id: true, content: true, likesCount: true },
-        });
-
-        isLiked = false;
-      } else {
-        // 좋아요 추가
-        await prisma.commentLike.create({
-          data: {
-            userId,
-            commentId,
-          },
-        });
-
-        updatedComment = await prisma.comment.update({
-          where: { id: commentId },
-          data: { likesCount: { increment: 1 } },
-          select: { id: true, content: true, likesCount: true },
-        });
-
-        isLiked = true;
       }
 
-      return { updatedComment, isLiked };
-    });
+      if (existingComment.author_id !== request.user!.id && request.user!.role !== "OWNER") {
+        return reply.status(403).send({
+          success: false,
+          error: "댓글을 수정할 권한이 없습니다.",
+        });
+      }
 
-    res.json({
-      success: true,
-      data: {
-        comment: result.updatedComment,
-        isLiked: result.isLiked,
-      },
-    });
-  })
-);
+      const comment = await prisma.comment.update({
+        where: { id },
+        data: { content },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+            },
+          },
+        },
+      });
 
-export default router;
+      return reply.send({
+        success: true,
+        data: comment,
+      });
+    }
+  );
+
+  // DELETE /comments/:id - 댓글 삭제 (soft delete)
+  const deleteCommentParamsSchema = z.object({
+    id: z.string().uuid(),
+  });
+
+  fastify.delete(
+    "/:id",
+    { preHandler: requiredAuthenticate },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = deleteCommentParamsSchema.parse(request.params);
+
+      const existingComment = await prisma.comment.findUnique({
+        where: { id },
+      });
+
+      if (!existingComment || existingComment.is_deleted) {
+        return reply.status(404).send({
+          success: false,
+          error: "댓글을 찾을 수 없습니다.",
+        });
+      }
+
+      if (existingComment.author_id !== request.user!.id && request.user!.role !== "OWNER") {
+        return reply.status(403).send({
+          success: false,
+          error: "댓글을 삭제할 권한이 없습니다.",
+        });
+      }
+
+      await prisma.comment.update({
+        where: { id },
+        data: {
+          is_deleted: true,
+          deleted_at: new Date(),
+        },
+      });
+
+      // 게시글의 comment_count 감소
+      await prisma.post.update({
+        where: { id: existingComment.post_id },
+        data: { comment_count: { decrement: 1 } },
+      });
+
+      return reply.send({
+        success: true,
+        message: "댓글이 삭제되었습니다.",
+      });
+    }
+  );
+
+  // POST /comments/:id/like - 댓글 좋아요 토글
+  const likeCommentParamsSchema = z.object({
+    id: z.string().uuid(),
+  });
+
+  fastify.post(
+    "/:id/like",
+    { preHandler: requiredAuthenticate },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id: commentId } = likeCommentParamsSchema.parse(request.params);
+      const userId = request.user!.id!;
+
+      const result = await prisma.$transaction(async (tx) => {
+        const existingLike = await tx.commentLike.findUnique({
+          where: {
+            user_id_comment_id: { user_id: userId, comment_id: commentId },
+          },
+        });
+
+        let liked: boolean;
+        let updatedComment;
+
+        if (existingLike) {
+          // 좋아요 취소
+          await tx.commentLike.delete({
+            where: {
+              user_id_comment_id: { user_id: userId, comment_id: commentId },
+            },
+          });
+
+          updatedComment = await tx.comment.update({
+            where: { id: commentId },
+            data: { like_count: { decrement: 1 } },
+            select: { like_count: true },
+          });
+
+          liked = false;
+        } else {
+          // 좋아요 추가
+          await tx.commentLike.create({
+            data: {
+              user_id: userId,
+              comment_id: commentId,
+            },
+          });
+
+          updatedComment = await tx.comment.update({
+            where: { id: commentId },
+            data: { like_count: { increment: 1 } },
+            select: { like_count: true },
+          });
+
+          liked = true;
+        }
+
+        return { liked, likeCount: updatedComment.like_count };
+      });
+
+      return reply.send({
+        success: true,
+        data: result,
+      });
+    }
+  );
+};
+
+export default commentsRoutes;
