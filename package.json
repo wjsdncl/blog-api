@@ -39,11 +39,13 @@
     "dev": "tsx watch app.ts",
     "start": "node dist/app.js",
     "build": "tsc",
+    "build:prod": "npx prisma generate && tsc",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.js",
     "lint:fix": "eslint . --ext .ts,.js --fix",
     "dev:js": "nodemon app.js",
     "start:js": "node app.js",
+    "db:migrate": "npx prisma migrate deploy",
     "db:reset:safe": "node scripts/safe-reset.js",
     "db:backup": "echo 'Please create manual backup before any migration'",
     "format:prisma": "prisma format"
