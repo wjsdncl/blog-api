@@ -3,28 +3,12 @@ import { z } from "zod";
 import { prisma } from "../lib/prismaClient.js";
 import { requireOwner } from "../middleware/auth.js";
 
-const createSlug = (text: string): string =>
-  text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9가-힣\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .substring(0, 50);
-
 const tagsRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /tags - 태그 목록 조회
   fastify.get("/", async (request: FastifyRequest, reply: FastifyReply) => {
     const tags = await prisma.tag.findMany({
       where: { is_deleted: false },
-      orderBy: { post_count: "desc" },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        color: true,
-        post_count: true,
-        created_at: true,
-      },
+      orderBy: { name: "asc" },
     });
 
     return reply.send({
@@ -36,31 +20,15 @@ const tagsRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /tags - 태그 생성 (OWNER만)
   const createTagBodySchema = z.object({
     name: z.string().min(1),
-    color: z
-      .string()
-      .regex(/^#[0-9A-Fa-f]{6}$/)
-      .optional(),
+    slug: z.string().min(1),
+    color: z.string().optional(),
   });
 
   fastify.post("/", { preHandler: requireOwner }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = createTagBodySchema.parse(request.body);
-    const { name, color } = body;
-
-    // slug 생성
-    const baseSlug = createSlug(name);
-    let slug = baseSlug;
-    let counter = 1;
-    while (await prisma.tag.findFirst({ where: { slug } })) {
-      slug = `${baseSlug}-${counter}`;
-      counter++;
-    }
 
     const tag = await prisma.tag.create({
-      data: {
-        name,
-        slug,
-        color,
-      },
+      data: body,
     });
 
     return reply.status(201).send({
@@ -76,10 +44,8 @@ const tagsRoutes: FastifyPluginAsync = async (fastify) => {
 
   const updateTagBodySchema = z.object({
     name: z.string().min(1).optional(),
-    color: z
-      .string()
-      .regex(/^#[0-9A-Fa-f]{6}$/)
-      .optional(),
+    slug: z.string().min(1).optional(),
+    color: z.string().optional(),
   });
 
   fastify.patch(
@@ -100,27 +66,9 @@ const tagsRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const { name, color } = body;
-
-      // slug 재생성 (name 변경 시)
-      let slug = existingTag.slug;
-      if (name && name !== existingTag.name) {
-        const baseSlug = createSlug(name);
-        slug = baseSlug;
-        let counter = 1;
-        while (await prisma.tag.findFirst({ where: { slug, id: { not: id } } })) {
-          slug = `${baseSlug}-${counter}`;
-          counter++;
-        }
-      }
-
       const tag = await prisma.tag.update({
         where: { id },
-        data: {
-          ...(name && { name }),
-          ...(name && { slug }),
-          ...(color !== undefined && { color }),
-        },
+        data: body,
       });
 
       return reply.send({
