@@ -14,8 +14,6 @@ import authRoutes from "./routes/auth.js";
 import postsRoutes from "./routes/posts.js";
 import usersRoutes from "./routes/users.js";
 import commentsRoutes from "./routes/comments.js";
-import projectsRoutes from "./routes/projects.js";
-import uploadRoutes from "./routes/upload.js";
 import categoriesRoutes from "./routes/categories.js";
 import tagsRoutes from "./routes/tags.js";
 
@@ -86,8 +84,6 @@ async function buildApp(): Promise<FastifyInstance> {
   await app.register(postsRoutes, { prefix: "/posts" });
   await app.register(usersRoutes, { prefix: "/users" });
   await app.register(commentsRoutes, { prefix: "/comments" });
-  await app.register(projectsRoutes, { prefix: "/projects" });
-  await app.register(uploadRoutes, { prefix: "/upload" });
   await app.register(categoriesRoutes, { prefix: "/categories" });
   await app.register(tagsRoutes, { prefix: "/tags" });
 
