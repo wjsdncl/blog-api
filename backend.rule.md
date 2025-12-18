@@ -169,24 +169,366 @@ declare global {
 
 ## Prisma ORM Best Practices
 
-### Schema Design
+### Schema Design Principles (Current Project Standards)
 
-1. **네이밍**: 단수형, camelCase for fields, PascalCase for models
-2. **인덱스**: 자주 쿼리되는 필드에 @@index 추가
-3. **관계**: 명확한 관계 정의 (1:1, 1:N, N:M)
+#### 1. Naming Conventions
+
+**모델명 (Models)**: PascalCase
 
 ```prisma
-// Good: Prisma Schema
+model User { }
+model Post { }
+model Portfolio { }
+```
+
+**테이블명 (Tables)**: snake_case with @@map directive
+
+```prisma
+model User {
+  @@map("users")
+}
+model PostLike {
+  @@map("post_likes")
+}
+```
+
+**필드명 (Fields)**: snake_case
+
+```prisma
+model Post {
+  author_id     String
+  category_id   String?
+  published_at  DateTime?
+  created_at    DateTime
+}
+```
+
+**Relation 필드명**: camelCase
+
+```prisma
+model Post {
+  author    User       @relation(fields: [author_id], references: [id])
+  category  Category?  @relation(fields: [category_id], references: [id])
+  comments  Comment[]
+  postLikes PostLike[]
+}
+```
+
+**Enum**: PascalCase with descriptive names
+
+```prisma
+enum Role {
+  USER
+  OWNER
+  @@schema("public")
+}
+```
+
+#### 2. ID Strategy
+
+**모든 모델은 UUID 사용** (auto-increment 대신)
+
+```prisma
+model Post {
+  id String @id @default(uuid())
+}
+```
+
+**장점**:
+
+- 분산 시스템에서 충돌 없음
+- 보안상 ID 예측 불가
+- 마이그레이션 시 충돌 방지
+
+#### 3. Soft Delete Pattern
+
+**모든 리소스에 소프트 삭제 적용**
+
+```prisma
+model Post {
+  is_deleted Boolean   @default(false)
+  deleted_at DateTime?
+
+  @@index([is_deleted])
+  @@index([is_deleted, published])
+}
+```
+
+**쿼리 시 항상 is_deleted 확인**:
+
+```typescript
+const posts = await prisma.post.findMany({
+  where: { is_deleted: false },
+});
+```
+
+#### 4. Timestamp Pattern
+
+**모든 모델에 생성일/수정일 추가**
+
+```prisma
+model Post {
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  published_at DateTime? // 최초 공개일 (별도 관리)
+  deleted_at DateTime?   // 삭제일 (soft delete)
+}
+```
+
+#### 5. Caching Fields
+
+**자주 계산되는 값은 캐싱 필드로 저장**
+
+```prisma
+model Post {
+  view_count    Int @default(0)
+  like_count    Int @default(0)
+  comment_count Int @default(0)
+}
+
+model Category {
+  post_count Int @default(0)
+}
+
+model TechStack {
+  usage_count Int @default(0)
+}
+```
+
+**업데이트 시 트랜잭션 사용**:
+
+```typescript
+await prisma.$transaction([
+  prisma.postLike.create({ data: { user_id, post_id } }),
+  prisma.post.update({
+    where: { id: post_id },
+    data: { like_count: { increment: 1 } },
+  }),
+]);
+```
+
+#### 6. Multi-Schema Strategy
+
+**인증 정보는 별도 스키마로 분리**
+
+```prisma
+datasource db {
+  schemas = ["public", "Auth"]
+}
+
+model Auth {
+  @@schema("Auth")
+}
+
+model User {
+  @@schema("public")
+}
+```
+
+**장점**:
+
+- 보안 강화 (DB 권한 분리)
+- 스키마 마이그레이션 독립적 관리
+- 백업/복원 전략 분리
+
+#### 7. Relationship Patterns
+
+**1:1 관계** (User ↔ Auth)
+
+```prisma
+model User {
+  id   String @id @default(uuid())
+  auth Auth?
+}
+
+model Auth {
+  id      String @id @default(uuid())
+  user_id String @unique
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+```
+
+**1:N 관계** (User → Post)
+
+```prisma
+model User {
+  posts Post[]
+}
+
+model Post {
+  author_id String
+  author    User   @relation(fields: [author_id], references: [id], onDelete: Cascade)
+
+  @@index([author_id])
+}
+```
+
+**N:M 관계** (Post ↔ Tag)
+
+```prisma
+model Post {
+  tags Tag[]
+}
+
+model Tag {
+  posts Post[]
+}
+```
+
+**Self-Referencing** (Comment 답글 구조)
+
+```prisma
+model Comment {
+  parent_id String?
+  parent    Comment?  @relation("CommentReplies", fields: [parent_id], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+
+  @@index([parent_id])
+}
+```
+
+#### 8. Indexing Strategy
+
+**단일 인덱스**: FK, unique 필드, 자주 조회되는 필드
+
+```prisma
+model Post {
+  @@index([author_id])
+  @@index([category_id])
+  @@index([slug])
+  @@index([is_deleted])
+}
+```
+
+**복합 인덱스**: 자주 함께 사용되는 조건
+
+```prisma
+model Post {
+  @@index([published, created_at])        // 공개글 최신순
+  @@index([author_id, published])         // 특정 작성자의 공개글
+  @@index([category_id, published])       // 카테고리별 공개글
+  @@index([is_deleted, published])        // 삭제되지 않은 공개글
+}
+
+model Comment {
+  @@index([post_id, is_deleted, created_at]) // 게시글의 최신 댓글
+}
+```
+
+**인덱스 순서**: 선택도가 높은 필드를 앞에 배치
+
+#### 9. Data Integrity (onDelete Actions)
+
+**Cascade**: 부모 삭제 시 자식도 삭제
+
+```prisma
+model Post {
+  author User @relation(fields: [author_id], references: [id], onDelete: Cascade)
+}
+```
+
+**SetNull**: 부모 삭제 시 FK를 NULL로 설정
+
+```prisma
+model Post {
+  category Category? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+}
+```
+
+**Restrict**: 자식이 있으면 부모 삭제 불가
+
+```prisma
+model PortfolioLink {
+  type PortfolioLinkType @relation(fields: [type_id], references: [id], onDelete: Restrict)
+}
+```
+
+#### 10. Optional vs Required Fields
+
+**필수 필드**: title, content, author_id 등 핵심 데이터
+
+```prisma
+model Post {
+  title      String
+  content    String  @db.Text
+  author_id  String
+}
+```
+
+**선택 필드**: excerpt, cover_image, description 등 부가 정보
+
+```prisma
+model Post {
+  excerpt     String?  @db.Text
+  cover_image String?
+  category_id String?
+}
+```
+
+#### 11. String Field Types
+
+**단순 문자열**: String (기본, VARCHAR 255)
+
+```prisma
+title  String
+slug   String
+url    String
+```
+
+**긴 텍스트**: @db.Text (TEXT 타입)
+
+```prisma
+content     String @db.Text
+description String? @db.Text
+```
+
+**토큰/키**: @db.Text (긴 문자열 저장)
+
+```prisma
+access_token  String? @db.Text
+refresh_token String? @db.Text
+```
+
+#### 12. Boolean Defaults
+
+**명시적 기본값 설정**
+
+```prisma
+published  Boolean @default(false)
+is_deleted Boolean @default(false)
+```
+
+#### 13. Documentation with JSDoc
+
+**모델에 JSDoc 주석 추가**
+
+```prisma
+/// 사용자 기본 정보
+model User {
+  id String @id @default(uuid()) // 사용자 고유 ID
+}
+
+/// 블로그 게시글
+model Post {
+  title String // 제목
+  slug  String @unique // URL 경로
+}
+```
+
+### Legacy Schema Example (DO NOT USE)
+
+```prisma
+// Bad: Old patterns (before migration)
 model Post {
   id          String    @id @default(uuid())
   title       String
   slug        String    @unique
   content     String
   published   Boolean   @default(false)
-  authorId    String
+  authorId    String      // ❌ camelCase in field name
   categoryId  String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime  @default(now())  // ❌ camelCase in field name
+  updatedAt   DateTime  @updatedAt       // ❌ camelCase in field name
 
   author      User      @relation(fields: [authorId], references: [id])
   category    Category  @relation(fields: [categoryId], references: [id])
@@ -197,6 +539,52 @@ model Post {
   @@index([categoryId])
   @@index([slug])
   @@index([createdAt])
+}
+```
+
+### Current Project Schema Standards
+
+```prisma
+// Good: Current standards (post-migration)
+/// 블로그 게시글
+model Post {
+  id            String    @id @default(uuid())           // UUID 기반 ID
+  title         String                                   // 제목
+  slug          String    @unique                        // URL 경로
+  content       String    @db.Text                       // 본문 (긴 텍스트)
+  excerpt       String?   @db.Text                       // 요약 (선택)
+  cover_image   String?                                  // 커버 이미지 URL
+  published     Boolean   @default(false)                // 공개 여부
+  is_deleted    Boolean   @default(false)                // Soft delete
+  view_count    Int       @default(0)                    // 조회수 캐싱
+  like_count    Int       @default(0)                    // 좋아요 수 캐싱
+  comment_count Int       @default(0)                    // 댓글 수 캐싱
+  author_id     String                                   // 작성자 ID (FK)
+  category_id   String?                                  // 카테고리 ID (FK, 선택)
+  published_at  DateTime?                                // 최초 공개일
+  deleted_at    DateTime?                                // 삭제일
+  created_at    DateTime  @default(now())                // 생성일
+  updated_at    DateTime  @updatedAt                     // 수정일
+
+  // Relations (camelCase)
+  author    User       @relation(fields: [author_id], references: [id], onDelete: Cascade)
+  category  Category?  @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  tags      Tag[]
+  comments  Comment[]
+  postLikes PostLike[]
+
+  // Indexes
+  @@index([author_id])
+  @@index([category_id])
+  @@index([slug])
+  @@index([is_deleted])
+  @@index([published, created_at])               // 복합: 공개글 최신순
+  @@index([author_id, published])                // 복합: 작성자별 공개글
+  @@index([category_id, published])              // 복합: 카테고리별 공개글
+  @@index([is_deleted, published])               // 복합: 삭제되지 않은 공개글
+
+  @@map("posts")      // 테이블명: snake_case
+  @@schema("public")  // 스키마: public
 }
 ```
 

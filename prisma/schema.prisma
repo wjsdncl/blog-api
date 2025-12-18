@@ -1,243 +1,275 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["public", "auth"]
+  schemas  = ["public", "Auth"]
 }
 
-// 사용자 기본 정보
-model User {
-  id         String   @id @default(uuid())  // 사용자 고유 ID (UUID)
-  username   String   @unique                // 사용자명 (중복 불가)
-  email      String   @unique                // 이메일 (중복 불가)
-  role       Role     @default(USER)         // 사용자 권한 (USER/OWNER)
-  
-  created_at DateTime @default(now())        // 계정 생성일
-  updated_at DateTime @updatedAt              // 계정 수정일
-  
-  // 관계
-  auth          Auth?
-  posts         Post[]
-  comments      Comment[]
-  post_likes    PostLike[]
-  comment_likes CommentLike[]
-  
-  @@index([email])
-  @@index([username])
-  @@schema("public")
-  @@map("users")
-}
+// ============================================
+// 사용자 & 인증
+// ============================================
 
-// 인증 정보 (분리)
+/// 인증 정보 (OAuth, JWT 토큰 관리)
 model Auth {
-  id            String   @id @default(uuid())  // 인증 정보 ID
-  user_id       String   @unique                // 연결된 사용자 ID (1:1)
-  
-  // 로컬 인증
-  password_hash String?                         // 비밀번호 해시 (bcrypt)
-  
-  // OAuth 인증 (선택사항)
-  provider      String?                         // OAuth 제공자 (google, github 등)
-  provider_id   String?                         // OAuth 제공자의 사용자 ID
-  
-  // 토큰 관리
-  access_token  String?  @db.Text              // JWT 액세스 토큰
-  refresh_token String?  @db.Text              // JWT 리프레시 토큰
-  
-  created_at    DateTime @default(now())        // 생성일
-  updated_at    DateTime @updatedAt              // 수정일
-  
-  // 관계
-  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
+  id            String   @id @default(uuid()) // 인증 정보 ID
+  user_id       String   @unique // 사용자 ID (1:1)
+  password_hash String? // 비밀번호 해시
+  provider      String? // OAuth 제공자
+  provider_id   String? // OAuth 제공자 사용자 ID
+  access_token  String?  @db.Text // JWT 액세스 토큰
+  refresh_token String?  @db.Text // JWT 리프레시 토큰
+  created_at    DateTime @default(now()) // 생성일
+  updated_at    DateTime @updatedAt // 수정일
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
   @@unique([provider, provider_id])
   @@index([user_id])
-  @@schema("auth")
   @@map("auth")
+  @@schema("Auth")
 }
 
-// 게시글
+/// 사용자 기본 정보
+model User {
+  id         String   @id @default(uuid()) // 사용자 고유 ID
+  username   String   @unique // 사용자명
+  email      String   @unique // 이메일
+  Role       Role     @default(USER) // 사용자 권한
+  created_at DateTime @default(now()) // 생성일
+  updated_at DateTime @updatedAt // 수정일
+
+  auth         Auth?
+  comments     Comment[]
+  postLikes    PostLike[]
+  commentLikes CommentLike[]
+
+  @@index([email])
+  @@index([username])
+  @@map("users")
+  @@schema("public")
+}
+
+// ============================================
+// 블로그 콘텐츠
+// ============================================
+
+/// 블로그 게시글
 model Post {
-  id            String    @id @default(uuid())  // 게시글 고유 ID
-  title         String                          // 제목
-  slug          String    @unique               // URL 경로 (고유)
-  content       String    @db.Text              // 본문 (Markdown/HTML)
-  excerpt       String?   @db.Text              // 요약/발췌문
-  cover_image   String?                         // 커버 이미지 URL
-  
-  published     Boolean   @default(false)       // 공개 여부 (false=임시저장)
-  is_deleted    Boolean   @default(false)       // 삭제 여부 (soft delete)
-  
-  view_count    Int       @default(0)           // 조회수
-  like_count    Int       @default(0)           // 좋아요 수
-  comment_count Int       @default(0)           // 댓글 수
-  
-  author_id     String                          // 작성자 ID
-  category_id   String?                         // 카테고리 ID (nullable)
-  
-  published_at  DateTime?                       // 최초 공개일
-  deleted_at    DateTime?                       // 삭제일
-  created_at    DateTime  @default(now())        // 생성일
-  updated_at    DateTime  @updatedAt              // 수정일
-  
-  // 관계
-  author        User         @relation(fields: [author_id], references: [id], onDelete: Cascade)
-  category      Category?    @relation(fields: [category_id], references: [id], onDelete: SetNull)
-  tags          Tag[]
-  comments      Comment[]
-  post_likes    PostLike[]
-  
-  // 단일 인덱스
-  @@index([author_id])
+  id           String        @id @default(uuid()) // 게시글 ID
+  title        String // 제목
+  slug         String        @unique // URL 경로
+  content      String        @db.Text // 본문 (Markdown/HTML)
+  excerpt      String?       @db.Text // 요약
+  cover_image  String? // 커버 이미지 URL
+  status       PublishStatus @default(DRAFT) // 게시글 상태
+  view_count   Int           @default(0) // 조회수
+  category_id  String? // 카테고리 ID
+  published_at DateTime? // 최초 공개일 (예약 발행 시간)
+  created_at   DateTime      @default(now()) // 생성일
+  updated_at   DateTime      @updatedAt // 수정일
+
+  category  Category?  @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  tags      Tag[]
+  comments  Comment[]
+  postLikes PostLike[]
+
   @@index([category_id])
   @@index([slug])
-  @@index([is_deleted])
-  
-  // 복합 인덱스 (자주 사용하는 쿼리 조합)
-  @@index([published, created_at])           // 공개글 최신순 조회
-  @@index([author_id, published])            // 특정 작성자의 공개글
-  @@index([category_id, published])          // 특정 카테고리의 공개글
-  @@index([is_deleted, published])           // 삭제되지 않은 공개글
-  
-  @@schema("public")
+  @@index([status, created_at])
+  @@index([category_id, status])
   @@map("posts")
+  @@schema("public")
 }
 
-// 카테고리
+/// 게시글 카테고리
 model Category {
-  id          String   @id @default(uuid())  // 카테고리 ID
-  name        String   @unique               // 카테고리명 (중복 불가)
-  slug        String   @unique               // URL 경로 (고유)
-  description String?                        // 설명
-  color       String?                        // UI 색상 코드 (예: #3B82F6)
-  icon        String?                        // 아이콘 이름 또는 URL
-  order       Int      @default(0)           // 정렬 순서
-  is_deleted  Boolean  @default(false)       // 삭제 여부
-  
-  post_count  Int      @default(0)           // 게시글 수 (캐싱)
-  
-  deleted_at  DateTime?                      // 삭제일
-  created_at  DateTime @default(now())        // 생성일
-  updated_at  DateTime @updatedAt              // 수정일
-  
-  // 관계
-  posts       Post[]
-  
+  id          String   @id @default(uuid()) // 카테고리 ID
+  name        String   @unique // 카테고리명
+  slug        String   @unique // URL 경로
+  description String? // 설명
+  color       String? // UI 색상
+  icon        String? // 아이콘
+  order       Int      @default(0) // 정렬 순서
+  created_at  DateTime @default(now()) // 생성일
+  updated_at  DateTime @updatedAt // 수정일
+
+  posts      Post[]
+  portfolios Portfolio[]
+
   @@index([slug])
   @@index([order])
-  @@index([is_deleted])
-  @@index([is_deleted, order])  // 삭제되지 않은 카테고리 정렬 순서대로 조회
-  @@schema("public")
   @@map("categories")
+  @@schema("public")
 }
 
-// 태그
+/// 태그
 model Tag {
-  id         String   @id @default(uuid())  // 태그 ID
-  name       String   @unique               // 태그명 (중복 불가)
-  slug       String   @unique               // URL 경로 (고유)
-  color      String?                        // UI 색상 코드
-  is_deleted Boolean  @default(false)       // 삭제 여부
-  
-  post_count Int      @default(0)           // 게시글 수 (캐싱)
-  
-  deleted_at DateTime?                      // 삭제일
-  created_at DateTime @default(now())        // 생성일
-  updated_at DateTime @updatedAt              // 수정일
-  
-  // 관계
+  id         String   @id @default(uuid()) // 태그 ID
+  name       String   @unique // 태그명
+  slug       String   @unique // URL 경로
+  color      String? // UI 색상
+  created_at DateTime @default(now()) // 생성일
+  updated_at DateTime @updatedAt // 수정일
+
   posts      Post[]
-  
+  portfolios Portfolio[]
+
   @@index([slug])
   @@index([name])
-  @@index([is_deleted])
-  @@index([is_deleted, post_count])  // 삭제되지 않은 인기 태그 조회
-  @@schema("public")
   @@map("tags")
+  @@schema("public")
 }
 
-// 댓글 (Self-Referencing으로 답글 지원)
+// ============================================
+// 댓글 & 좋아요
+// ============================================
+
+/// 댓글 (Self-Referencing 답글 구조)
 model Comment {
-  id         String    @id @default(uuid())  // 댓글 ID
-  content    String    @db.Text              // 댓글 내용
-  
-  post_id    String                          // 게시글 ID
-  author_id  String                          // 작성자 ID
-  parent_id  String?                         // 부모 댓글 ID (NULL=댓글, 값=답글)
-  
-  is_deleted Boolean   @default(false)       // 삭제 여부
-  deleted_at DateTime?                       // 삭제일
-  like_count Int       @default(0)           // 좋아요 수
-  
-  created_at DateTime  @default(now())        // 생성일
-  updated_at DateTime  @updatedAt              // 수정일
-  
-  // 관계
-  post           Post          @relation(fields: [post_id], references: [id], onDelete: Cascade)
-  author         User          @relation(fields: [author_id], references: [id], onDelete: Cascade)
-  parent         Comment?      @relation("CommentReplies", fields: [parent_id], references: [id], onDelete: Cascade)
-  replies        Comment[]     @relation("CommentReplies")
-  comment_likes  CommentLike[]
-  
-  // 단일 인덱스
+  id         String   @id @default(uuid()) // 댓글 ID
+  content    String   @db.Text // 댓글 내용
+  post_id    String // 게시글 ID
+  author_id  String // 작성자 ID
+  parent_id  String? // 부모 댓글 ID (NULL=댓글, 값=답글)
+  created_at DateTime @default(now()) // 생성일
+  updated_at DateTime @updatedAt // 수정일
+
+  post         Post          @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  author       User          @relation(fields: [author_id], references: [id], onDelete: Cascade)
+  parent       Comment?      @relation("CommentReplies", fields: [parent_id], references: [id], onDelete: Cascade)
+  replies      Comment[]     @relation("CommentReplies")
+  commentLikes CommentLike[]
+
   @@index([post_id])
   @@index([author_id])
   @@index([parent_id])
-  @@index([is_deleted])
-  
-  // 복합 인덱스
-  @@index([post_id, is_deleted, created_at])  // 특정 게시글의 삭제되지 않은 댓글 조회
-  @@index([author_id, is_deleted])            // 특정 사용자의 삭제되지 않은 댓글
-  
-  @@schema("public")
+  @@index([post_id, created_at])
+  @@index([author_id, created_at])
   @@map("comments")
+  @@schema("public")
 }
 
-// 게시글 좋아요
+/// 게시글 좋아요
 model PostLike {
-  id         String   @id @default(uuid())  // 좋아요 ID
-  user_id    String                          // 사용자 ID
-  post_id    String                          // 게시글 ID
-  created_at DateTime @default(now())        // 좋아요 누른 시간
-  
-  // 관계
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  post       Post     @relation(fields: [post_id], references: [id], onDelete: Cascade)
-  
+  id         String   @id @default(uuid()) // 좋아요 ID
+  user_id    String // 사용자 ID
+  post_id    String // 게시글 ID
+  created_at DateTime @default(now()) // 생성일
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
   @@unique([user_id, post_id])
-  @@index([post_id, created_at])  // 특정 게시글의 최근 좋아요 조회
-  @@index([user_id, created_at])  // 특정 사용자의 최근 좋아요 조회
-  @@schema("public")
+  @@index([post_id, created_at])
+  @@index([user_id, created_at])
   @@map("post_likes")
-}
-
-// 댓글 좋아요
-model CommentLike {
-  id         String   @id @default(uuid())  // 좋아요 ID
-  user_id    String                          // 사용자 ID
-  comment_id String                          // 댓글 ID
-  created_at DateTime @default(now())        // 좋아요 누른 시간
-  
-  // 관계
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  comment    Comment  @relation(fields: [comment_id], references: [id], onDelete: Cascade)
-  
-  @@unique([user_id, comment_id])
-  @@index([comment_id, created_at])  // 특정 댓글의 최근 좋아요 조회
-  @@index([user_id, created_at])     // 특정 사용자의 최근 좋아요 조회
   @@schema("public")
-  @@map("comment_likes")
 }
 
-// 사용자 권한 (Enum)
+/// 댓글 좋아요
+model CommentLike {
+  id         String   @id @default(uuid()) // 좋아요 ID
+  user_id    String // 사용자 ID
+  comment_id String // 댓글 ID
+  created_at DateTime @default(now()) // 생성일
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [comment_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, comment_id])
+  @@index([comment_id, created_at])
+  @@index([user_id, created_at])
+  @@map("comment_likes")
+  @@schema("public")
+}
+
+// ============================================
+// 포트폴리오
+// ============================================
+
+/// 포트폴리오 (프로젝트)
+model Portfolio {
+  id           String        @id @default(uuid()) // 포트폴리오 ID
+  title        String // 프로젝트 제목
+  slug         String        @unique // URL 경로
+  content      String        @db.Text // 프로젝트 상세 설명
+  description  String?       @db.Text // 짧은 요약
+  thumbnail    String? // 썸네일 이미지 URL
+  start_date   DateTime? // 시작일
+  end_date     DateTime? // 종료일 (NULL=진행중)
+  status       PublishStatus @default(DRAFT) // 포트폴리오 상태
+  view_count   Int           @default(0) // 조회수
+  order        Int           @default(0) // 정렬 순서
+  category_id  String? // 카테고리 ID
+  published_at DateTime? // 최초 공개일 (예약 발행 시간)
+  created_at   DateTime      @default(now()) // 생성일
+  updated_at   DateTime      @updatedAt // 수정일
+
+  category   Category?       @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  tags       Tag[]
+  links      PortfolioLink[]
+  techStacks TechStack[]
+
+  @@index([category_id])
+  @@index([slug])
+  @@index([status, order])
+  @@map("portfolios")
+  @@schema("public")
+}
+
+/// 포트폴리오 링크 (프로젝트 관련 URL)
+model PortfolioLink {
+  id           String   @id @default(uuid()) // 링크 ID
+  portfolio_id String // 포트폴리오 ID
+  type         String // 링크 타입 (live, github, demo, figma 등)
+  url          String // 링크 URL
+  label        String? // 링크 레이블
+  order        Int      @default(0) // 정렬 순서
+  created_at   DateTime @default(now()) // 생성일
+  updated_at   DateTime @updatedAt // 수정일
+
+  portfolio Portfolio @relation(fields: [portfolio_id], references: [id], onDelete: Cascade)
+
+  @@index([portfolio_id, order])
+  @@index([type])
+  @@map("portfolio_links")
+  @@schema("public")
+}
+
+/// 기술 스택 (재사용 가능한 기술 정보)
+model TechStack {
+  id         String   @id @default(uuid()) // 기술 스택 ID
+  name       String   @unique // 기술명 (React, TypeScript 등)
+  category   String? // 카테고리 (Frontend, Backend 등)
+  created_at DateTime @default(now()) // 생성일
+  updated_at DateTime @updatedAt // 수정일
+
+  portfolios Portfolio[]
+
+  @@index([name])
+  @@index([category])
+  @@map("tech_stacks")
+  @@schema("public")
+}
+
+// ============================================
+// Enum
+// ============================================
+/// 게시글/포트폴리오 발행 상태
+enum PublishStatus {
+  DRAFT // 임시저장
+  PUBLISHED // 공개
+  SCHEDULED // 예약 발행
+
+  @@schema("public")
+}
+
+/// 사용자 권한
 enum Role {
-  USER   // 일반 사용자
-  OWNER  // 블로그 소유자 (관리자)
-  
+  USER // 일반 사용자
+  OWNER // 블로그 소유자 (관리자)
+
   @@schema("public")
 }
