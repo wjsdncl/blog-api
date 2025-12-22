@@ -21,13 +21,11 @@ const commentsRoutes: FastifyPluginAsync = async (fastify) => {
         prisma.comment.count({
           where: {
             post_id: postId,
-            is_deleted: false,
           },
         }),
         prisma.comment.findMany({
           where: {
             post_id: postId,
-            is_deleted: false,
           },
           skip: parseInt(offset),
           take: parseInt(limit),
@@ -112,7 +110,7 @@ const commentsRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id },
       });
 
-      if (!existingComment || existingComment.is_deleted) {
+      if (!existingComment) {
         return reply.status(404).send({
           success: false,
           error: "댓글을 찾을 수 없습니다.",
@@ -161,7 +159,7 @@ const commentsRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id },
       });
 
-      if (!existingComment || existingComment.is_deleted) {
+      if (!existingComment) {
         return reply.status(404).send({
           success: false,
           error: "댓글을 찾을 수 없습니다.",
@@ -175,12 +173,8 @@ const commentsRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      await prisma.comment.update({
+      await prisma.comment.delete({
         where: { id },
-        data: {
-          is_deleted: true,
-          deleted_at: new Date(),
-        },
       });
 
       return reply.send({

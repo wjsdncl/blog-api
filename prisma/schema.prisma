@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["public", "Auth"]
+  schemas  = ["public", "auth"]
 }
 
 // ============================================
@@ -28,7 +28,7 @@ model Auth {
   @@unique([provider, provider_id])
   @@index([user_id])
   @@map("auth")
-  @@schema("Auth")
+  @@schema("auth")
 }
 
 /// 사용자 기본 정보
@@ -36,7 +36,7 @@ model User {
   id         String   @id @default(uuid()) // 사용자 고유 ID
   username   String   @unique // 사용자명
   email      String   @unique // 이메일
-  Role       Role     @default(USER) // 사용자 권한
+  role       role     @default(USER) // 사용자 권한
   created_at DateTime @default(now()) // 생성일
   updated_at DateTime @updatedAt // 수정일
 
@@ -63,7 +63,7 @@ model Post {
   content      String        @db.Text // 본문 (Markdown/HTML)
   excerpt      String?       @db.Text // 요약
   cover_image  String? // 커버 이미지 URL
-  status       PublishStatus @default(DRAFT) // 게시글 상태
+  status       publish_status @default(DRAFT) // 게시글 상태
   view_count   Int           @default(0) // 조회수
   category_id  String? // 카테고리 ID
   published_at DateTime? // 최초 공개일 (예약 발행 시간)
@@ -199,7 +199,7 @@ model Portfolio {
   thumbnail    String? // 썸네일 이미지 URL
   start_date   DateTime? // 시작일
   end_date     DateTime? // 종료일 (NULL=진행중)
-  status       PublishStatus @default(DRAFT) // 포트폴리오 상태
+  status       publish_status @default(DRAFT) // 포트폴리오 상태
   view_count   Int           @default(0) // 조회수
   order        Int           @default(0) // 정렬 순서
   category_id  String? // 카테고리 ID
@@ -258,7 +258,7 @@ model TechStack {
 // Enum
 // ============================================
 /// 게시글/포트폴리오 발행 상태
-enum PublishStatus {
+enum publish_status {
   DRAFT // 임시저장
   PUBLISHED // 공개
   SCHEDULED // 예약 발행
@@ -267,7 +267,7 @@ enum PublishStatus {
 }
 
 /// 사용자 권한
-enum Role {
+enum role {
   USER // 일반 사용자
   OWNER // 블로그 소유자 (관리자)
 

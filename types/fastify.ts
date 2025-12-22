@@ -1,5 +1,5 @@
 import { FastifyRequest } from "fastify";
-import { User as PrismaUser, Role } from "@prisma/client";
+import { User as PrismaUser, role } from "@prisma/client";
 
 // JWT 토큰에서 나오는 사용자 정보 타입
 export interface User extends Partial<PrismaUser> {
@@ -7,7 +7,7 @@ export interface User extends Partial<PrismaUser> {
   id?: string;
   email?: string;
   name?: string;
-  role?: Role;
+  role?: role;
   isOwner?: boolean;
 }
 
@@ -21,7 +21,7 @@ declare module "fastify" {
 
 // 인증된 요청 타입 (user가 확정적으로 존재)
 export interface AuthenticatedRequest extends FastifyRequest {
-  user: User & { id: string; role: Role };
+  user: User & { id: string; role: role };
 }
 
 // 제네릭 타입 요청

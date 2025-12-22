@@ -2,6 +2,7 @@ import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prismaClient.js";
 import { requiredAuthenticate, optionalAuthenticate, requireOwner } from "../middleware/auth.js";
+import { publish_status } from "@prisma/client";
 
 const postsRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /posts - 게시글 목록 조회
@@ -18,20 +19,12 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
       const { offset, limit } = query;
 
       const [totalCount, posts] = await Promise.all([
-        prisma.post.count({ where: { is_deleted: false } }),
+        prisma.post.count(),
         prisma.post.findMany({
-          where: { is_deleted: false },
           skip: parseInt(offset),
           take: parseInt(limit),
           orderBy: { created_at: "desc" },
           include: {
-            author: {
-              select: {
-                id: true,
-                username: true,
-                email: true,
-              },
-            },
             category: true,
             tags: true,
           },
@@ -62,16 +55,8 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
       const post = await prisma.post.findFirst({
         where: {
           id,
-          is_deleted: false,
         },
         include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-            },
-          },
           category: true,
           tags: true,
         },
@@ -97,7 +82,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
     content: z.string().min(1),
     excerpt: z.string().optional(),
     cover_image: z.string().url().optional(),
-    published: z.boolean().default(false),
+    status: z.nativeEnum(publish_status).optional().default(publish_status.DRAFT),
     category_id: z.string().uuid().optional(),
     tag_ids: z.array(z.string().uuid()).optional(),
   });
@@ -107,8 +92,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
     { preHandler: [requiredAuthenticate, requireOwner] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const body = createPostBodySchema.parse(request.body);
-      const { title, content, excerpt, cover_image, published, category_id, tag_ids } = body;
-      const author_id = request.user!.id;
+      const { title, content, excerpt, cover_image, status, category_id, tag_ids } = body;
 
       // slug 생성
       const baseSlug = title
@@ -132,10 +116,9 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
           content,
           excerpt,
           cover_image,
-          published,
-          author_id: author_id!,
+          status,
           category_id,
-          published_at: published ? new Date() : null,
+          published_at: status === publish_status.PUBLISHED ? new Date() : null,
           ...(tag_ids &&
             tag_ids.length > 0 && {
               tags: {
@@ -144,13 +127,6 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
             }),
         },
         include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-            },
-          },
           category: true,
           tags: true,
         },
@@ -173,7 +149,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
     content: z.string().min(1).optional(),
     excerpt: z.string().optional(),
     cover_image: z.string().url().optional().nullable(),
-    published: z.boolean().optional(),
+    status: z.nativeEnum(publish_status).optional(),
     category_id: z.string().uuid().optional().nullable(),
     tag_ids: z.array(z.string().uuid()).optional(),
   });
@@ -189,14 +165,14 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id },
       });
 
-      if (!existingPost || existingPost.is_deleted) {
+      if (!existingPost) {
         return reply.status(404).send({
           success: false,
           error: "게시글을 찾을 수 없습니다.",
         });
       }
 
-      const { title, content, excerpt, cover_image, published, category_id, tag_ids } = body;
+      const { title, content, excerpt, cover_image, status, category_id, tag_ids } = body;
 
       const post = await prisma.post.update({
         where: { id },
@@ -205,7 +181,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
           ...(content !== undefined && { content }),
           ...(excerpt !== undefined && { excerpt }),
           ...(cover_image !== undefined && { cover_image }),
-          ...(published !== undefined && { published }),
+          ...(status !== undefined && { status }),
           ...(category_id !== undefined && { category_id }),
           ...(tag_ids !== undefined && {
             tags: {
@@ -214,13 +190,6 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
           }),
         },
         include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-            },
-          },
           category: true,
           tags: true,
         },
@@ -233,7 +202,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // DELETE /posts/:id - 게시글 삭제 (OWNER만, soft delete)
+  // DELETE /posts/:id - 게시글 삭제 (OWNER만, hard delete)
   const deletePostParamsSchema = z.object({
     id: z.string().uuid(),
   });
@@ -248,19 +217,15 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id },
       });
 
-      if (!existingPost || existingPost.is_deleted) {
+      if (!existingPost) {
         return reply.status(404).send({
           success: false,
           error: "게시글을 찾을 수 없습니다.",
         });
       }
 
-      await prisma.post.update({
+      await prisma.post.delete({
         where: { id },
-        data: {
-          is_deleted: true,
-          deleted_at: new Date(),
-        },
       });
 
       return reply.send({

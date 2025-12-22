@@ -7,7 +7,6 @@ const tagsRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /tags - 태그 목록 조회
   fastify.get("/", async (request: FastifyRequest, reply: FastifyReply) => {
     const tags = await prisma.tag.findMany({
-      where: { is_deleted: false },
       orderBy: { name: "asc" },
     });
 
@@ -59,7 +58,7 @@ const tagsRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id },
       });
 
-      if (!existingTag || existingTag.is_deleted) {
+      if (!existingTag) {
         return reply.status(404).send({
           success: false,
           error: "태그를 찾을 수 없습니다.",
@@ -93,19 +92,15 @@ const tagsRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id },
       });
 
-      if (!existingTag || existingTag.is_deleted) {
+      if (!existingTag) {
         return reply.status(404).send({
           success: false,
           error: "태그를 찾을 수 없습니다.",
         });
       }
 
-      await prisma.tag.update({
+      await prisma.tag.delete({
         where: { id },
-        data: {
-          is_deleted: true,
-          deleted_at: new Date(),
-        },
       });
 
       return reply.send({

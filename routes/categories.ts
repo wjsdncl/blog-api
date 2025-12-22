@@ -7,7 +7,6 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /categories - 카테고리 목록 조회
   fastify.get("/", async (request: FastifyRequest, reply: FastifyReply) => {
     const categories = await prisma.category.findMany({
-      where: { is_deleted: false },
       orderBy: { order: "asc" },
     });
 
@@ -63,7 +62,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id },
       });
 
-      if (!existingCategory || existingCategory.is_deleted) {
+      if (!existingCategory) {
         return reply.status(404).send({
           success: false,
           error: "카테고리를 찾을 수 없습니다.",
@@ -97,19 +96,15 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id },
       });
 
-      if (!existingCategory || existingCategory.is_deleted) {
+      if (!existingCategory) {
         return reply.status(404).send({
           success: false,
           error: "카테고리를 찾을 수 없습니다.",
         });
       }
 
-      await prisma.category.update({
+      await prisma.category.delete({
         where: { id },
-        data: {
-          is_deleted: true,
-          deleted_at: new Date(),
-        },
       });
 
       return reply.send({
