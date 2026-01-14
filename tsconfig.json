@@ -13,6 +13,7 @@
     "noEmit": false,
     "outDir": "./dist",
     "rootDir": "./",
+    "baseUrl": "./",
     "paths": {
       "@/*": ["./*"]
     },
