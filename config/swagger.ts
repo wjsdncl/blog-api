@@ -23,8 +23,165 @@ async function validateCredentials(
   }
 }
 
+// 공통 스키마 정의 (addSchema 및 OpenAPI components 모두 사용)
+// $id는 라우트에서 $ref로 참조하는 전체 경로와 일치해야 함
+const schemas = {
+  ErrorResponse: {
+    $id: "ErrorResponse",
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: false },
+      error: { type: "string" },
+    },
+  },
+  SuccessResponse: {
+    $id: "SuccessResponse",
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: { type: "object" },
+      message: { type: "string" },
+    },
+  },
+  PaginationMeta: {
+    $id: "PaginationMeta",
+    type: "object",
+    properties: {
+      page: { type: "integer", example: 1 },
+      limit: { type: "integer", example: 10 },
+      total: { type: "integer", example: 100 },
+      totalPages: { type: "integer", example: 10 },
+      hasNext: { type: "boolean", example: true },
+      hasPrev: { type: "boolean", example: false },
+    },
+  },
+  User: {
+    $id: "User",
+    type: "object",
+    properties: {
+      id: { type: "string", format: "uuid" },
+      username: { type: "string", example: "johndoe" },
+      email: { type: "string", format: "email" },
+      role: { type: "string", enum: ["OWNER", "MEMBER"] },
+      is_active: { type: "boolean" },
+      created_at: { type: "string", format: "date-time" },
+    },
+  },
+  Post: {
+    $id: "Post",
+    type: "object",
+    properties: {
+      id: { type: "string", format: "uuid" },
+      title: { type: "string", example: "첫 번째 게시글" },
+      slug: { type: "string", example: "first-post" },
+      content: { type: "string" },
+      excerpt: { type: "string" },
+      cover_image: { type: "string", format: "uri" },
+      status: { type: "string", enum: ["DRAFT", "PUBLISHED", "SCHEDULED"] },
+      view_count: { type: "integer" },
+      like_count: { type: "integer" },
+      comment_count: { type: "integer" },
+      published_at: { type: "string", format: "date-time", nullable: true },
+      created_at: { type: "string", format: "date-time" },
+      updated_at: { type: "string", format: "date-time" },
+    },
+  },
+  Category: {
+    $id: "Category",
+    type: "object",
+    properties: {
+      id: { type: "string", format: "uuid" },
+      name: { type: "string", example: "개발" },
+      slug: { type: "string", example: "개발" },
+      order: { type: "integer" },
+      post_count: { type: "integer" },
+      created_at: { type: "string", format: "date-time" },
+    },
+  },
+  Tag: {
+    $id: "Tag",
+    type: "object",
+    properties: {
+      id: { type: "string", format: "uuid" },
+      name: { type: "string", example: "TypeScript" },
+      slug: { type: "string", example: "typescript" },
+      created_at: { type: "string", format: "date-time" },
+    },
+  },
+  CommentAuthor: {
+    $id: "CommentAuthor",
+    type: "object",
+    properties: {
+      id: { type: "string", format: "uuid" },
+      username: { type: "string" },
+      role: { type: "string", enum: ["OWNER", "MEMBER"] },
+    },
+  },
+  Comment: {
+    $id: "Comment",
+    type: "object",
+    properties: {
+      id: { type: "string", format: "uuid" },
+      content: { type: "string" },
+      post_id: { type: "string", format: "uuid" },
+      parent_id: { type: "string", format: "uuid", nullable: true },
+      like_count: { type: "integer" },
+      is_liked: { type: "boolean" },
+      created_at: { type: "string", format: "date-time" },
+      updated_at: { type: "string", format: "date-time" },
+    },
+  },
+  PortfolioLink: {
+    $id: "PortfolioLink",
+    type: "object",
+    properties: {
+      id: { type: "string", format: "uuid" },
+      type: { type: "string", example: "github" },
+      url: { type: "string", format: "uri" },
+      label: { type: "string" },
+      order: { type: "integer" },
+    },
+  },
+  TechStack: {
+    $id: "TechStack",
+    type: "object",
+    properties: {
+      id: { type: "string", format: "uuid" },
+      name: { type: "string", example: "React" },
+      category: { type: "string", example: "Frontend" },
+      portfolio_count: { type: "integer" },
+      created_at: { type: "string", format: "date-time" },
+    },
+  },
+  Portfolio: {
+    $id: "Portfolio",
+    type: "object",
+    properties: {
+      id: { type: "string", format: "uuid" },
+      title: { type: "string" },
+      slug: { type: "string" },
+      content: { type: "string" },
+      excerpt: { type: "string" },
+      cover_image: { type: "string", format: "uri" },
+      start_date: { type: "string", format: "date" },
+      end_date: { type: "string", format: "date", nullable: true },
+      status: { type: "string", enum: ["DRAFT", "PUBLISHED", "SCHEDULED"] },
+      view_count: { type: "integer" },
+      order: { type: "integer" },
+      published_at: { type: "string", format: "date-time", nullable: true },
+      created_at: { type: "string", format: "date-time" },
+      updated_at: { type: "string", format: "date-time" },
+    },
+  },
+} as const;
+
 export async function setupSwagger(app: FastifyInstance): Promise<void> {
-  // Swagger 비활성화 시 등록하지 않음
+  // 스키마를 Fastify에 등록 (라우트에서 $ref 사용 가능하게 함)
+  Object.values(schemas).forEach((schema) => {
+    app.addSchema(schema);
+  });
+
+  // Swagger 비활성화 시 문서만 스킵
   if (!config.swagger.enabled) {
     return;
   }

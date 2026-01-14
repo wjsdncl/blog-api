@@ -88,8 +88,15 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       description: "OAuth 제공자(GitHub, Google)의 인증 페이지로 리다이렉트합니다.",
       querystring: zodToJsonSchema(oauthQuerySchema),
       response: {
-        302: { description: "OAuth 제공자로 리다이렉트" },
-        400: { $ref: "#/components/schemas/ErrorResponse" },
+        302: { description: "OAuth 제공자로 리다이렉트", type: "null" },
+        400: {
+          description: "잘못된 요청",
+          type: "object",
+          properties: {
+            success: { type: "boolean", example: false },
+            error: { type: "string" },
+          },
+        },
       },
     },
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
@@ -126,7 +133,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       description: "OAuth 제공자로부터의 콜백을 처리합니다. 인증 성공 시 프론트엔드로 리다이렉트됩니다.",
       querystring: zodToJsonSchema(oauthCallbackSchema),
       response: {
-        302: { description: "프론트엔드로 리다이렉트" },
+        302: { description: "프론트엔드로 리다이렉트", type: "null" },
       },
     },
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
@@ -211,7 +218,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             message: { type: "string" },
           },
         },
-        401: { $ref: "#/components/schemas/ErrorResponse" },
+        401: {
+          description: "인증 실패",
+          type: "object",
+          properties: {
+            success: { type: "boolean", example: false },
+            error: { type: "string" },
+          },
+        },
       },
     },
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
