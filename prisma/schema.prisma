@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
 }
 
 datasource db {
@@ -11,17 +12,14 @@ datasource db {
 // 사용자 & 인증
 // ============================================
 
-/// 인증 정보 (OAuth, JWT 토큰 관리)
+/// 인증 정보 (OAuth 전용)
 model Auth {
-  id            String   @id @default(uuid()) // 인증 정보 ID
-  user_id       String   @unique // 사용자 ID (1:1)
-  password_hash String? // 비밀번호 해시
-  provider      String? // OAuth 제공자
-  provider_id   String? // OAuth 제공자 사용자 ID
-  access_token  String?  @db.Text // JWT 액세스 토큰
-  refresh_token String?  @db.Text // JWT 리프레시 토큰
-  created_at    DateTime @default(now()) // 생성일
-  updated_at    DateTime @updatedAt // 수정일
+  id          String   @id @default(uuid()) // 인증 정보 ID
+  user_id     String   @unique // 사용자 ID (1:1)
+  provider    String // OAuth 제공자 (GITHUB, GOOGLE)
+  provider_id String // OAuth 제공자 사용자 ID
+  created_at  DateTime @default(now()) // 생성일
+  updated_at  DateTime @updatedAt // 수정일
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
@@ -37,6 +35,7 @@ model User {
   username   String   @unique // 사용자명
   email      String   @unique // 이메일
   role       role     @default(USER) // 사용자 권한
+  is_active  Boolean  @default(true) // 계정 활성화 상태
   created_at DateTime @default(now()) // 생성일
   updated_at DateTime @updatedAt // 수정일
 
@@ -47,6 +46,7 @@ model User {
 
   @@index([email])
   @@index([username])
+  @@index([is_active])
   @@map("users")
   @@schema("public")
 }
@@ -57,18 +57,20 @@ model User {
 
 /// 블로그 게시글
 model Post {
-  id           String        @id @default(uuid()) // 게시글 ID
-  title        String // 제목
-  slug         String        @unique // URL 경로
-  content      String        @db.Text // 본문 (Markdown/HTML)
-  excerpt      String?       @db.Text // 요약
-  cover_image  String? // 커버 이미지 URL
-  status       publish_status @default(DRAFT) // 게시글 상태
-  view_count   Int           @default(0) // 조회수
-  category_id  String? // 카테고리 ID
-  published_at DateTime? // 최초 공개일 (예약 발행 시간)
-  created_at   DateTime      @default(now()) // 생성일
-  updated_at   DateTime      @updatedAt // 수정일
+  id            String         @id @default(uuid()) // 게시글 ID
+  title         String // 제목
+  slug          String         @unique // URL 경로
+  content       String         @db.Text // 본문 (Markdown/HTML)
+  excerpt       String?        @db.Text // 요약
+  cover_image   String? // 커버 이미지 URL
+  status        publish_status @default(DRAFT) // 게시글 상태
+  view_count    Int            @default(0) // 조회수
+  like_count    Int            @default(0) // 좋아요 수 (비정규화)
+  comment_count Int            @default(0) // 댓글 수 (비정규화)
+  category_id   String? // 카테고리 ID
+  published_at  DateTime? // 최초 공개일 (예약 발행 시간)
+  created_at    DateTime       @default(now()) // 생성일
+  updated_at    DateTime       @updatedAt // 수정일
 
   category  Category?  @relation(fields: [category_id], references: [id], onDelete: SetNull)
   tags      Tag[]
@@ -79,27 +81,28 @@ model Post {
   @@index([slug])
   @@index([status, created_at])
   @@index([category_id, status])
+  @@index([like_count])
+  @@index([comment_count])
   @@map("posts")
   @@schema("public")
 }
 
 /// 게시글 카테고리
 model Category {
-  id          String   @id @default(uuid()) // 카테고리 ID
-  name        String   @unique // 카테고리명
-  slug        String   @unique // URL 경로
-  description String? // 설명
-  color       String? // UI 색상
-  icon        String? // 아이콘
-  order       Int      @default(0) // 정렬 순서
-  created_at  DateTime @default(now()) // 생성일
-  updated_at  DateTime @updatedAt // 수정일
+  id         String   @id @default(uuid()) // 카테고리 ID
+  name       String   @unique // 카테고리명
+  slug       String   @unique // URL 경로
+  order      Int      @default(0) // 정렬 순서
+  post_count Int      @default(0) // 게시글 수 (비정규화)
+  created_at DateTime @default(now()) // 생성일
+  updated_at DateTime @updatedAt // 수정일
 
   posts      Post[]
   portfolios Portfolio[]
 
   @@index([slug])
   @@index([order])
+  @@index([post_count])
   @@map("categories")
   @@schema("public")
 }
@@ -109,7 +112,6 @@ model Tag {
   id         String   @id @default(uuid()) // 태그 ID
   name       String   @unique // 태그명
   slug       String   @unique // URL 경로
-  color      String? // UI 색상
   created_at DateTime @default(now()) // 생성일
   updated_at DateTime @updatedAt // 수정일
 
@@ -195,8 +197,8 @@ model Portfolio {
   title        String // 프로젝트 제목
   slug         String        @unique // URL 경로
   content      String        @db.Text // 프로젝트 상세 설명
-  description  String?       @db.Text // 짧은 요약
-  thumbnail    String? // 썸네일 이미지 URL
+  excerpt      String?       @db.Text // 짧은 요약
+  cover_image  String? // 커버 이미지 URL
   start_date   DateTime? // 시작일
   end_date     DateTime? // 종료일 (NULL=진행중)
   status       publish_status @default(DRAFT) // 포트폴리오 상태
