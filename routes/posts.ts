@@ -1,239 +1,372 @@
+/**
+ * Posts Routes
+ * 블로그 게시글 관리
+ */
 import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import { prisma } from "../lib/prismaClient.js";
-import { requiredAuthenticate, optionalAuthenticate, requireOwner } from "../middleware/auth.js";
-import { publish_status } from "@prisma/client";
+import { prisma } from "@/lib/prismaClient.js";
+import { optionalAuthenticate, requiredAuthenticate, requireOwner } from "@/middleware/auth.js";
+import { NotFoundError } from "@/lib/errors.js";
+import { postIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
+import { addStatusFilter, assertPublicAccess, incrementViewCount } from "@/utils/prismaHelpers.js";
+import { toggleLike } from "@/services/like.service.js";
+import { createPost, updatePost, deletePost, postDetailSelect } from "@/services/post.service.js";
+import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
+
+// ============================================
+// Schemas
+// ============================================
+
+const postListQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+  status: z.enum(["DRAFT", "PUBLISHED", "SCHEDULED"]).optional(),
+  category: z.string().optional(),
+  tag: z.string().optional(),
+  search: z.string().max(100).optional(),
+});
+
+const createPostSchema = z.object({
+  title: z.string().min(1, "제목은 필수입니다.").max(200, "제목은 200자 이하여야 합니다."),
+  content: z.string().min(1, "내용은 필수입니다."),
+  excerpt: z.string().max(500, "요약은 500자 이하여야 합니다.").optional(),
+  cover_image: z.string().url("유효한 URL을 입력해주세요.").optional(),
+  status: z.enum(["DRAFT", "PUBLISHED", "SCHEDULED"]).default("DRAFT"),
+  category_id: z.string().uuid("유효하지 않은 카테고리 ID입니다.").optional().nullable(),
+  tag_ids: z.array(z.string().uuid()).max(10, "태그는 최대 10개까지 가능합니다.").optional(),
+  published_at: z.coerce.date().optional(),
+});
+
+const updatePostSchema = createPostSchema.partial();
+
+// ============================================
+// Select Objects (목록용)
+// ============================================
+
+const postListSelect = {
+  id: true,
+  title: true,
+  slug: true,
+  excerpt: true,
+  cover_image: true,
+  status: true,
+  view_count: true,
+  like_count: true,
+  comment_count: true,
+  published_at: true,
+  created_at: true,
+  category: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
+  tags: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
+} as const;
+
+// ============================================
+// Routes
+// ============================================
 
 const postsRoutes: FastifyPluginAsync = async (fastify) => {
-  // GET /posts - 게시글 목록 조회
-  const getPostsQuerySchema = z.object({
-    offset: z.string().optional().default("0"),
-    limit: z.string().optional().default("10"),
-  });
-
-  fastify.get(
-    "/",
-    { preHandler: optionalAuthenticate },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const query = getPostsQuerySchema.parse(request.query);
-      const { offset, limit } = query;
-
-      const [totalCount, posts] = await Promise.all([
-        prisma.post.count(),
-        prisma.post.findMany({
-          skip: parseInt(offset),
-          take: parseInt(limit),
-          orderBy: { created_at: "desc" },
-          include: {
-            category: true,
-            tags: true,
+  /**
+   * GET /posts
+   * 게시글 목록 조회
+   */
+  fastify.get("/", {
+    schema: {
+      tags: ["Posts"],
+      summary: "게시글 목록 조회",
+      description: "게시글 목록을 페이지네이션하여 조회합니다. 카테고리, 태그, 검색어로 필터링할 수 있습니다.",
+      querystring: zodToJsonSchema(postListQuerySchema),
+      response: {
+        200: {
+          description: "성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            data: { type: "array", items: { $ref: "#/components/schemas/Post" } },
+            pagination: { $ref: "#/components/schemas/PaginationMeta" },
           },
+        },
+      },
+    },
+    preHandler: optionalAuthenticate,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const { page, limit, status, category, tag, search } = postListQuerySchema.parse(request.query);
+      const skip = (page - 1) * limit;
+      const isOwner = request.user?.role === "OWNER";
+
+      const where: Record<string, unknown> = {};
+
+      addStatusFilter(where, isOwner, status);
+
+      if (category) {
+        where.category = { slug: category };
+      }
+
+      if (tag) {
+        where.tags = { some: { slug: tag } };
+      }
+
+      if (search) {
+        where.OR = [
+          { title: { contains: search, mode: "insensitive" } },
+          { content: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const [posts, total] = await Promise.all([
+        prisma.post.findMany({
+          where,
+          select: postListSelect,
+          orderBy: { created_at: "desc" },
+          skip,
+          take: limit,
         }),
+        prisma.post.count({ where }),
       ]);
+
+      const totalPages = Math.ceil(total / limit);
 
       return reply.send({
         success: true,
-        data: {
-          posts,
-          totalCount,
+        data: posts,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
         },
       });
-    }
-  );
-
-  // GET /posts/:id - 단일 게시글 조회
-  const getPostParamsSchema = z.object({
-    id: z.string().uuid(),
+    },
   });
 
-  fastify.get(
-    "/:id",
-    { preHandler: optionalAuthenticate },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const { id } = getPostParamsSchema.parse(request.params);
-
-      const post = await prisma.post.findFirst({
-        where: {
-          id,
+  /**
+   * GET /posts/:slug
+   * 게시글 상세 조회 (슬러그)
+   */
+  fastify.get("/:slug", {
+    schema: {
+      tags: ["Posts"],
+      summary: "게시글 상세 조회",
+      description: "슬러그로 게시글 상세 정보를 조회합니다.",
+      params: zodToJsonSchema(slugParamsSchema),
+      response: {
+        200: {
+          description: "성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            data: { $ref: "#/components/schemas/Post" },
+          },
         },
-        include: {
-          category: true,
-          tags: true,
+        404: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+    preHandler: optionalAuthenticate,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const { slug } = slugParamsSchema.parse(request.params);
+      const isOwner = request.user?.role === "OWNER";
+
+      const post = await prisma.post.findUnique({
+        where: { slug },
+        select: {
+          ...postDetailSelect,
+          postLikes: request.user
+            ? {
+                where: { user_id: request.user.userId },
+                select: { id: true },
+              }
+            : false,
         },
       });
 
       if (!post) {
-        return reply.status(404).send({
-          success: false,
-          error: "게시글을 찾을 수 없습니다.",
-        });
+        throw new NotFoundError("게시글");
       }
+
+      assertPublicAccess(post, isOwner, "게시글");
+      await incrementViewCount("post", post.id, isOwner);
+
+      const isLiked = request.user && Array.isArray(post.postLikes) && post.postLikes.length > 0;
 
       return reply.send({
         success: true,
-        data: post,
+        data: {
+          ...post,
+          postLikes: undefined,
+          isLiked,
+        },
       });
-    }
-  );
-
-  // POST /posts - 게시글 생성 (OWNER만)
-  const createPostBodySchema = z.object({
-    title: z.string().min(1),
-    content: z.string().min(1),
-    excerpt: z.string().optional(),
-    cover_image: z.string().url().optional(),
-    status: z.nativeEnum(publish_status).optional().default(publish_status.DRAFT),
-    category_id: z.string().uuid().optional(),
-    tag_ids: z.array(z.string().uuid()).optional(),
+    },
   });
 
-  fastify.post(
-    "/",
-    { preHandler: [requiredAuthenticate, requireOwner] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const body = createPostBodySchema.parse(request.body);
-      const { title, content, excerpt, cover_image, status, category_id, tag_ids } = body;
-
-      // slug 생성
-      const baseSlug = title
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9가-힣\s-]/g, "")
-        .replace(/\s+/g, "-")
-        .substring(0, 100);
-
-      let slug = baseSlug;
-      let counter = 1;
-      while (await prisma.post.findFirst({ where: { slug } })) {
-        slug = `${baseSlug}-${counter}`;
-        counter++;
-      }
-
-      const post = await prisma.post.create({
-        data: {
-          title,
-          slug,
-          content,
-          excerpt,
-          cover_image,
-          status,
-          category_id,
-          published_at: status === publish_status.PUBLISHED ? new Date() : null,
-          ...(tag_ids &&
-            tag_ids.length > 0 && {
-              tags: {
-                connect: tag_ids.map((id) => ({ id })),
-              },
-            }),
+  /**
+   * POST /posts
+   * 게시글 작성 (OWNER 전용)
+   */
+  fastify.post("/", {
+    schema: {
+      tags: ["Posts"],
+      summary: "게시글 작성",
+      description: "새 게시글을 작성합니다. OWNER 권한이 필요합니다.",
+      security: [{ bearerAuth: [] }],
+      body: zodToJsonSchema(createPostSchema),
+      response: {
+        201: {
+          description: "생성 성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            data: { $ref: "#/components/schemas/Post" },
+            message: { type: "string" },
+          },
         },
-        include: {
-          category: true,
-          tags: true,
-        },
-      });
+        401: { $ref: "#/components/schemas/ErrorResponse" },
+        403: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+    preHandler: requireOwner,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const input = createPostSchema.parse(request.body);
+      const post = await createPost(input);
 
       return reply.status(201).send({
         success: true,
         data: post,
+        message: "게시글이 작성되었습니다.",
       });
-    }
-  );
-
-  // PATCH /posts/:id - 게시글 수정 (OWNER만)
-  const updatePostParamsSchema = z.object({
-    id: z.string().uuid(),
+    },
   });
 
-  const updatePostBodySchema = z.object({
-    title: z.string().min(1).optional(),
-    content: z.string().min(1).optional(),
-    excerpt: z.string().optional(),
-    cover_image: z.string().url().optional().nullable(),
-    status: z.nativeEnum(publish_status).optional(),
-    category_id: z.string().uuid().optional().nullable(),
-    tag_ids: z.array(z.string().uuid()).optional(),
-  });
-
-  fastify.patch(
-    "/:id",
-    { preHandler: [requiredAuthenticate, requireOwner] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const { id } = updatePostParamsSchema.parse(request.params);
-      const body = updatePostBodySchema.parse(request.body);
-
-      const existingPost = await prisma.post.findUnique({
-        where: { id },
-      });
-
-      if (!existingPost) {
-        return reply.status(404).send({
-          success: false,
-          error: "게시글을 찾을 수 없습니다.",
-        });
-      }
-
-      const { title, content, excerpt, cover_image, status, category_id, tag_ids } = body;
-
-      const post = await prisma.post.update({
-        where: { id },
-        data: {
-          ...(title && { title }),
-          ...(content !== undefined && { content }),
-          ...(excerpt !== undefined && { excerpt }),
-          ...(cover_image !== undefined && { cover_image }),
-          ...(status !== undefined && { status }),
-          ...(category_id !== undefined && { category_id }),
-          ...(tag_ids !== undefined && {
-            tags: {
-              set: tag_ids.map((id) => ({ id })),
-            },
-          }),
+  /**
+   * PATCH /posts/:id
+   * 게시글 수정 (OWNER 전용)
+   */
+  fastify.patch("/:id", {
+    schema: {
+      tags: ["Posts"],
+      summary: "게시글 수정",
+      description: "게시글을 수정합니다. OWNER 권한이 필요합니다.",
+      security: [{ bearerAuth: [] }],
+      params: zodToJsonSchema(postIdParamsSchema),
+      body: zodToJsonSchema(updatePostSchema),
+      response: {
+        200: {
+          description: "수정 성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            data: { $ref: "#/components/schemas/Post" },
+            message: { type: "string" },
+          },
         },
-        include: {
-          category: true,
-          tags: true,
-        },
-      });
+        404: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+    preHandler: requireOwner,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = postIdParamsSchema.parse(request.params);
+      const input = updatePostSchema.parse(request.body);
+      const post = await updatePost(id, input);
 
       return reply.send({
         success: true,
         data: post,
+        message: "게시글이 수정되었습니다.",
       });
-    }
-  );
-
-  // DELETE /posts/:id - 게시글 삭제 (OWNER만, hard delete)
-  const deletePostParamsSchema = z.object({
-    id: z.string().uuid(),
+    },
   });
 
-  fastify.delete(
-    "/:id",
-    { preHandler: [requiredAuthenticate, requireOwner] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const { id } = deletePostParamsSchema.parse(request.params);
-
-      const existingPost = await prisma.post.findUnique({
-        where: { id },
-      });
-
-      if (!existingPost) {
-        return reply.status(404).send({
-          success: false,
-          error: "게시글을 찾을 수 없습니다.",
-        });
-      }
-
-      await prisma.post.delete({
-        where: { id },
-      });
+  /**
+   * DELETE /posts/:id
+   * 게시글 삭제 (OWNER 전용)
+   */
+  fastify.delete("/:id", {
+    schema: {
+      tags: ["Posts"],
+      summary: "게시글 삭제",
+      description: "게시글을 삭제합니다. OWNER 권한이 필요합니다.",
+      security: [{ bearerAuth: [] }],
+      params: zodToJsonSchema(postIdParamsSchema),
+      response: {
+        200: {
+          description: "삭제 성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            message: { type: "string" },
+          },
+        },
+        404: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+    preHandler: requireOwner,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = postIdParamsSchema.parse(request.params);
+      await deletePost(id);
 
       return reply.send({
         success: true,
         message: "게시글이 삭제되었습니다.",
       });
-    }
-  );
+    },
+  });
+
+  /**
+   * POST /posts/:id/like
+   * 게시글 좋아요/취소 (로그인 필수)
+   */
+  fastify.post("/:id/like", {
+    schema: {
+      tags: ["Posts"],
+      summary: "게시글 좋아요/취소",
+      description: "게시글에 좋아요를 추가하거나 취소합니다. 로그인이 필요합니다.",
+      security: [{ bearerAuth: [] }],
+      params: zodToJsonSchema(postIdParamsSchema),
+      response: {
+        200: {
+          description: "성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            data: {
+              type: "object",
+              properties: {
+                isLiked: { type: "boolean" },
+              },
+            },
+            message: { type: "string" },
+          },
+        },
+        401: { $ref: "#/components/schemas/ErrorResponse" },
+        404: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+    preHandler: requiredAuthenticate,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = postIdParamsSchema.parse(request.params);
+      const userId = request.user!.userId;
+
+      const result = await toggleLike("post", id, userId);
+
+      return reply.send({
+        success: true,
+        data: { isLiked: result.isLiked },
+        message: result.message,
+      });
+    },
+  });
 };
 
 export default postsRoutes;

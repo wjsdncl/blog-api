@@ -1,217 +1,357 @@
-import { FastifyPluginAsync } from "fastify";
+/**
+ * Auth Routes - OAuth 2.0 (BFF Pattern)
+ *
+ * GitHub, Google OAuth를 지원하며 JWT를 HttpOnly 쿠키로 발급합니다.
+ * 토큰은 브라우저에 노출되지 않고 백엔드에서만 관리됩니다.
+ */
+import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import { prisma } from "../lib/prismaClient.js";
-import { generateTokens } from "../utils/auth.js";
+import { prisma } from "@/lib/prismaClient.js";
+import { generateTokens, verifyRefreshToken, verifyAccessToken } from "@/utils/auth.js";
+import { config } from "@/config/index.js";
+import { logger } from "@/utils/logger.js";
+import { BadRequestError, UnauthorizedError } from "@/lib/errors.js";
+
+// Services
+import { getOAuthService, getSupportedProviders } from "@/services/oauth/index.js";
+import {
+  findOrCreateUser,
+  setAuthCookies,
+  clearAuthCookies,
+  getSessionInfo,
+  InactiveUserError,
+} from "@/services/auth.service.js";
+import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
+
+// ============================================
+// Types & Schemas
+// ============================================
+
+interface OAuthState {
+  state: string;
+  provider: string;
+}
+
+const oauthQuerySchema = z.object({
+  type: z.enum(["github", "google"]),
+});
+
+const oauthCallbackSchema = z.object({
+  code: z.string(),
+  state: z.string(),
+});
+
+// ============================================
+// Helper Functions
+// ============================================
+
+function setOAuthStateCookie(reply: FastifyReply, oauthState: OAuthState): void {
+  reply.setCookie("oauth_state", JSON.stringify(oauthState), {
+    httpOnly: true,
+    secure: config.nodeEnv === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 10, // 10분
+  });
+}
+
+function getOAuthStateCookie(request: FastifyRequest): OAuthState | null {
+  try {
+    const cookie = (request.cookies as Record<string, string>).oauth_state;
+    return cookie ? JSON.parse(cookie) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearOAuthStateCookie(reply: FastifyReply): void {
+  reply.clearCookie("oauth_state", { path: "/" });
+}
+
+// ============================================
+// Routes
+// ============================================
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
-  // GitHub OAuth Configuration
-  const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
-  const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
-  const GITHUB_CALLBACK_URL = process.env.GITHUB_CALLBACK_URL;
+  // ============================================
+  // OAuth 통합 엔드포인트
+  // ============================================
 
-  const GITHUB_CLIENT_ID_DEV = process.env.GITHUB_CLIENT_ID_DEV;
-  const GITHUB_CLIENT_SECRET_DEV = process.env.GITHUB_CLIENT_SECRET_DEV;
-  const GITHUB_CALLBACK_URL_DEV = process.env.GITHUB_CALLBACK_URL_DEV;
+  /**
+   * GET /auth/oauth?type=github|google
+   * OAuth 로그인 시작 - 제공자 인증 페이지로 리다이렉트
+   */
+  fastify.get("/oauth", {
+    schema: {
+      tags: ["Auth"],
+      summary: "OAuth 로그인 시작",
+      description: "OAuth 제공자(GitHub, Google)의 인증 페이지로 리다이렉트합니다.",
+      querystring: zodToJsonSchema(oauthQuerySchema),
+      response: {
+        302: { description: "OAuth 제공자로 리다이렉트" },
+        400: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const parseResult = oauthQuerySchema.safeParse(request.query);
 
-  const DEFAULT_COOKIE_OPTIONS = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "none" as const,
-    path: "/",
-  };
-
-  // GitHub API 응답 타입
-  interface GitHubTokenResponse {
-    access_token: string;
-    token_type: string;
-    scope: string;
-  }
-
-  interface GitHubUserResponse {
-    id: number;
-    login: string;
-    name: string | null;
-    email: string | null;
-  }
-
-  interface GitHubEmailResponse {
-    email: string;
-    primary: boolean;
-    verified: boolean;
-  }
-
-  // Helper to call GitHub API
-  async function fetchGitHubJson<T>(url: string, options: RequestInit = {}): Promise<T> {
-    const res = await fetch(url, options);
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      fastify.log.error({ url, status: res.status, text }, "GitHub API error");
-      throw new Error(`GitHub API request failed (${res.status})`);
-    }
-    return res.json() as Promise<T>;
-  }
-
-  // GET /auth/github -> GitHub OAuth 로그인
-  fastify.get("/github", async (request, reply) => {
-    const isDev = request.headers.origin === "https://localhost:3000";
-    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${
-      isDev ? GITHUB_CLIENT_ID_DEV : GITHUB_CLIENT_ID
-    }&redirect_uri=${isDev ? GITHUB_CALLBACK_URL_DEV : GITHUB_CALLBACK_URL}&scope=user:email`;
-
-    fastify.log.info({ isDev, origin: request.headers.origin }, "GitHub OAuth redirect initiated");
-    reply.redirect(githubAuthUrl);
-  });
-
-  // GET /auth/github/callback -> GitHub OAuth 콜백 처리
-  const callbackQuerySchema = z.object({
-    code: z.string(),
-  });
-
-  fastify.get("/github/callback", async (request, reply) => {
-    const parseResult = callbackQuerySchema.safeParse(request.query);
-
-    if (!parseResult.success) {
-      fastify.log.warn("GitHub OAuth callback missing code parameter");
-      return reply.status(400).send({
-        success: false,
-        error: "GitHub 코드를 전달받지 못했습니다.",
-      });
-    }
-
-    const { code } = parseResult.data;
-    const isDev = request.headers.origin === "https://localhost:3000";
-
-    try {
-      // GitHub access token 받기
-      const tokenData = await fetchGitHubJson<GitHubTokenResponse>(
-        "https://github.com/login/oauth/access_token",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            client_id: isDev ? GITHUB_CLIENT_ID_DEV : GITHUB_CLIENT_ID,
-            client_secret: isDev ? GITHUB_CLIENT_SECRET_DEV : GITHUB_CLIENT_SECRET,
-            code,
-          }),
-        }
-      );
-
-      if (!tokenData.access_token) {
-        fastify.log.error({ tokenData }, "Failed to get GitHub access token");
-        return reply.status(400).send({
-          success: false,
-          error: "GitHub 토큰을 받아오지 못했습니다.",
-        });
-      }
-
-      // GitHub 사용자 정보 가져오기
-      const userData = await fetchGitHubJson<GitHubUserResponse>("https://api.github.com/user", {
-        headers: {
-          Authorization: `token ${tokenData.access_token}`,
-        },
-      });
-
-      // 이메일 정보 가져오기
-      const emailData = await fetchGitHubJson<GitHubEmailResponse[]>("https://api.github.com/user/emails", {
-        headers: {
-          Authorization: `token ${tokenData.access_token}`,
-        },
-      });
-      const primaryEmail = emailData.find((email) => email.primary)?.email;
-
-      if (!primaryEmail) {
-        fastify.log.error({ userData }, "GitHub user has no primary email");
-        return reply.status(400).send({
-          success: false,
-          error: "GitHub 계정에 이메일이 설정되어 있지 않습니다.",
-        });
-      }
-
-      // 사용자 찾기 또는 생성
-      let user = await prisma.user.findUnique({
-        where: { email: primaryEmail },
-      });
-
-      let auth;
-      if (!user) {
-        // 새 사용자 생성 (User + Auth)
-        user = await prisma.user.create({
-          data: {
-            email: primaryEmail,
-            username: userData.name || userData.login,
-            role: "USER",
-          },
-        });
-
-        auth = await prisma.auth.create({
-          data: {
-            user_id: user.id,
-            provider: "GITHUB",
-            provider_id: userData.id.toString(),
-          },
-        });
-
-        fastify.log.info({ userId: user.id, email: primaryEmail }, "New user created via GitHub OAuth");
-      } else {
-        // 기존 사용자의 Auth 정보 확인
-        auth = await prisma.auth.findFirst({
-          where: {
-            user_id: user.id,
-            provider: "GITHUB",
-          },
-        });
-
-        if (!auth) {
-          // Auth 정보 생성
-          auth = await prisma.auth.create({
-            data: {
-              user_id: user.id,
-              provider: "GITHUB",
-              provider_id: userData.id.toString(),
-            },
-          });
-        }
-
-        fastify.log.info(
-          { userId: user.id, email: primaryEmail },
-          "Existing user logged in via GitHub OAuth"
+      if (!parseResult.success) {
+        throw new BadRequestError(
+          `지원하지 않는 OAuth 제공자입니다. 지원: ${getSupportedProviders().join(", ")}`
         );
       }
 
-      // JWT 토큰 생성
-      const { accessToken, refreshToken } = generateTokens(user.id, user.email);
+      const { type } = parseResult.data;
+      const service = getOAuthService(type);
 
-      return reply.status(200).send({
-        success: true,
-        data: { user, accessToken, refreshToken },
-      });
-    } catch (error: any) {
-      fastify.log.error({ error: error.message, stack: error.stack }, "GitHub OAuth callback error");
-      const status = error.message.startsWith("GitHub API request failed") ? 502 : 500;
-      return reply.status(status).send({
-        success: false,
-        error:
-          status === 502
-            ? "GitHub API 호출 중 오류가 발생했습니다."
-            : "GitHub 로그인 처리 중 서버 오류가 발생했습니다.",
-      });
-    }
+      if (!service?.isConfigured()) {
+        throw new BadRequestError(`${type} OAuth가 설정되지 않았습니다.`);
+      }
+
+      const state = crypto.randomUUID();
+      setOAuthStateCookie(reply, { state, provider: type });
+
+      return reply.redirect(service.getAuthUrl(state));
+    },
   });
 
-  // POST /auth/logout -> 로그아웃
-  fastify.post("/logout", async (request, reply) => {
-    reply.clearCookie("accessToken", DEFAULT_COOKIE_OPTIONS);
-    reply.clearCookie("refreshToken", DEFAULT_COOKIE_OPTIONS);
+  /**
+   * GET /auth/oauth/callback?code=...&state=...
+   * OAuth 콜백 처리 (모든 제공자 공통)
+   */
+  fastify.get("/oauth/callback", {
+    schema: {
+      tags: ["Auth"],
+      summary: "OAuth 콜백",
+      description: "OAuth 제공자로부터의 콜백을 처리합니다. 인증 성공 시 프론트엔드로 리다이렉트됩니다.",
+      querystring: zodToJsonSchema(oauthCallbackSchema),
+      response: {
+        302: { description: "프론트엔드로 리다이렉트" },
+      },
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const parseResult = oauthCallbackSchema.safeParse(request.query);
 
-    fastify.log.info("User logged out");
+      if (!parseResult.success) {
+        logger.warn("OAuth callback missing parameters", { query: request.query });
+        return reply.redirect(`${config.frontendUrl}/auth/error?message=invalid_request`);
+      }
 
-    return reply.send({
-      success: true,
-      message: "로그아웃 되었습니다.",
-    });
+      const { code, state } = parseResult.data;
+      const saved = getOAuthStateCookie(request);
+
+      // CSRF 검증
+      if (!saved || saved.state !== state) {
+        logger.warn("OAuth callback state mismatch", {
+          savedState: saved?.state,
+          receivedState: state,
+        });
+        return reply.redirect(`${config.frontendUrl}/auth/error?message=invalid_state`);
+      }
+
+      clearOAuthStateCookie(reply);
+
+      const service = getOAuthService(saved.provider);
+
+      if (!service) {
+        logger.error("OAuth service not found", { provider: saved.provider });
+        return reply.redirect(`${config.frontendUrl}/auth/error?message=invalid_provider`);
+      }
+
+      try {
+        // 1. Access Token 교환
+        const accessToken = await service.exchangeCode(code);
+
+        // 2. 사용자 정보 조회
+        const userInfo = await service.fetchUserInfo(accessToken);
+
+        // 3. 사용자 조회/생성 및 JWT 발급
+        const user = await findOrCreateUser(userInfo);
+        const tokens = generateTokens(user.id, user.email);
+        setAuthCookies(reply, tokens.accessToken, tokens.refreshToken);
+
+        // 4. 프론트엔드로 리다이렉트
+        return reply.redirect(`${config.frontendUrl}/auth/callback?provider=${saved.provider}`);
+      } catch (error) {
+        // 비활성화된 사용자
+        if (error instanceof InactiveUserError) {
+          logger.warn("Inactive user login blocked", { provider: saved.provider });
+          return reply.redirect(`${config.frontendUrl}/auth/error?message=account_inactive`);
+        }
+
+        logger.error("OAuth error", {
+          provider: saved.provider,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        return reply.redirect(`${config.frontendUrl}/auth/error?message=oauth_failed`);
+      }
+    },
+  });
+
+  // ============================================
+  // 공통 인증 엔드포인트
+  // ============================================
+
+  /**
+   * POST /auth/refresh
+   * 토큰 갱신
+   */
+  fastify.post("/refresh", {
+    schema: {
+      tags: ["Auth"],
+      summary: "토큰 갱신",
+      description: "리프레시 토큰을 사용하여 새로운 액세스 토큰을 발급받습니다.",
+      security: [{ cookieAuth: [] }],
+      response: {
+        200: {
+          description: "갱신 성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            message: { type: "string" },
+          },
+        },
+        401: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const refreshToken = (request.cookies as Record<string, string>).refresh_token;
+
+      if (!refreshToken) {
+        throw new UnauthorizedError("리프레시 토큰이 없습니다.");
+      }
+
+      try {
+        const decoded = verifyRefreshToken(refreshToken);
+
+        // 사용자 존재 및 활성화 확인
+        const user = await prisma.user.findUnique({
+          where: { id: decoded.userId },
+          select: { id: true, email: true, is_active: true },
+        });
+
+        if (!user) {
+          clearAuthCookies(reply);
+          throw new UnauthorizedError("사용자를 찾을 수 없습니다.");
+        }
+
+        // 비활성화된 사용자
+        if (!user.is_active) {
+          clearAuthCookies(reply);
+          throw new UnauthorizedError("비활성화된 계정입니다.");
+        }
+
+        // 새 토큰 발급
+        const tokens = generateTokens(user.id, user.email);
+        setAuthCookies(reply, tokens.accessToken, tokens.refreshToken);
+
+        return reply.send({
+          success: true,
+          message: "토큰이 갱신되었습니다.",
+        });
+      } catch (error) {
+        clearAuthCookies(reply);
+        throw new UnauthorizedError("유효하지 않은 리프레시 토큰입니다.");
+      }
+    },
+  });
+
+  /**
+   * POST /auth/logout
+   * 로그아웃
+   */
+  fastify.post("/logout", {
+    schema: {
+      tags: ["Auth"],
+      summary: "로그아웃",
+      description: "인증 쿠키를 삭제하여 로그아웃합니다.",
+      response: {
+        200: {
+          description: "로그아웃 성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            message: { type: "string" },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      clearAuthCookies(reply);
+
+      logger.info("User logged out", { ip: request.ip });
+
+      return reply.send({
+        success: true,
+        message: "로그아웃 되었습니다.",
+      });
+    },
+  });
+
+  /**
+   * GET /auth/session
+   * 현재 인증 상태 확인
+   */
+  fastify.get("/session", {
+    schema: {
+      tags: ["Auth"],
+      summary: "세션 확인",
+      description: "현재 인증 상태와 사용자 정보를 조회합니다.",
+      response: {
+        200: {
+          description: "성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            data: {
+              type: "object",
+              properties: {
+                authenticated: { type: "boolean" },
+                userId: { type: "string", format: "uuid" },
+                role: { type: "string", enum: ["OWNER", "MEMBER"] },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const accessToken = (request.cookies as Record<string, string>).access_token;
+
+      if (!accessToken) {
+        return reply.send({
+          success: true,
+          data: { authenticated: false },
+        });
+      }
+
+      try {
+        const decoded = verifyAccessToken(accessToken);
+        const session = await getSessionInfo(decoded.userId);
+
+        if (!session) {
+          return reply.send({
+            success: true,
+            data: { authenticated: false },
+          });
+        }
+
+        return reply.send({
+          success: true,
+          data: {
+            authenticated: true,
+            userId: session.id,
+            role: session.role,
+          },
+        });
+      } catch {
+        // 토큰이 만료된 경우
+        return reply.send({
+          success: true,
+          data: { authenticated: false },
+        });
+      }
+    },
   });
 };
 

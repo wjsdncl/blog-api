@@ -1,118 +1,292 @@
+/**
+ * Categories Routes
+ * 카테고리 관리
+ */
 import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import { prisma } from "../lib/prismaClient.js";
-import { requireOwner } from "../middleware/auth.js";
+import { prisma } from "@/lib/prismaClient.js";
+import { requireOwner } from "@/middleware/auth.js";
+import { NotFoundError, ConflictError } from "@/lib/errors.js";
+import { generateUniqueSlug } from "@/utils/slug.js";
+import { categoryIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
+import { findByIdOrThrow, checkUniqueName } from "@/utils/prismaHelpers.js";
+import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
+
+// ============================================
+// Schemas
+// ============================================
+
+const createCategorySchema = z.object({
+  name: z.string().min(1, "카테고리명은 필수입니다.").max(50, "카테고리명은 50자 이하여야 합니다."),
+  order: z.number().int().min(0).default(0),
+});
+
+const updateCategorySchema = createCategorySchema.partial();
+
+// ============================================
+// Select Objects
+// ============================================
+
+const categorySelect = {
+  id: true,
+  name: true,
+  slug: true,
+  order: true,
+  post_count: true,
+  created_at: true,
+} as const;
+
+// ============================================
+// Routes
+// ============================================
 
 const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
-  // GET /categories - 카테고리 목록 조회
-  fastify.get("/", async (request: FastifyRequest, reply: FastifyReply) => {
-    const categories = await prisma.category.findMany({
-      orderBy: { order: "asc" },
-    });
+  /**
+   * GET /categories
+   * 카테고리 목록 조회 (전체 게시글 수 + 각 카테고리별 게시글 수)
+   */
+  fastify.get("/", {
+    schema: {
+      tags: ["Categories"],
+      summary: "카테고리 목록 조회",
+      description: "모든 카테고리와 전체 게시글 수를 조회합니다.",
+      response: {
+        200: {
+          description: "성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            data: { type: "array", items: { $ref: "#/components/schemas/Category" } },
+            totalPostCount: { type: "integer", description: "전체 게시글 수" },
+          },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const [categories, totalPostCount] = await Promise.all([
+        prisma.category.findMany({
+          select: categorySelect,
+          orderBy: [{ order: "asc" }, { name: "asc" }],
+        }),
+        prisma.post.count({
+          where: { status: "PUBLISHED" },
+        }),
+      ]);
 
-    return reply.send({
-      success: true,
-      data: categories,
-    });
+      return reply.send({
+        success: true,
+        data: categories,
+        totalPostCount,
+      });
+    },
   });
 
-  // POST /categories - 카테고리 생성 (OWNER만)
-  const createCategoryBodySchema = z.object({
-    name: z.string().min(1),
-    slug: z.string().min(1),
-    color: z.string().optional(),
-    icon: z.string().optional(),
-    order: z.number().int().optional(),
-  });
+  /**
+   * GET /categories/:slug
+   * 카테고리 상세 조회 (슬러그)
+   */
+  fastify.get("/:slug", {
+    schema: {
+      tags: ["Categories"],
+      summary: "카테고리 상세 조회",
+      description: "슬러그로 카테고리 상세 정보를 조회합니다.",
+      params: zodToJsonSchema(slugParamsSchema),
+      response: {
+        200: {
+          description: "성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            data: { $ref: "#/components/schemas/Category" },
+          },
+        },
+        404: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const { slug } = slugParamsSchema.parse(request.params);
 
-  fastify.post("/", { preHandler: requireOwner }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = createCategoryBodySchema.parse(request.body);
-
-    const category = await prisma.category.create({
-      data: body,
-    });
-
-    return reply.status(201).send({
-      success: true,
-      data: category,
-    });
-  });
-
-  // PATCH /categories/:id - 카테고리 수정 (OWNER만)
-  const updateCategoryParamsSchema = z.object({
-    id: z.string().uuid(),
-  });
-
-  const updateCategoryBodySchema = z.object({
-    name: z.string().min(1).optional(),
-    slug: z.string().min(1).optional(),
-    color: z.string().optional(),
-    icon: z.string().optional(),
-    order: z.number().int().optional(),
-  });
-
-  fastify.patch(
-    "/:id",
-    { preHandler: requireOwner },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const { id } = updateCategoryParamsSchema.parse(request.params);
-      const body = updateCategoryBodySchema.parse(request.body);
-
-      const existingCategory = await prisma.category.findUnique({
-        where: { id },
+      const category = await prisma.category.findUnique({
+        where: { slug },
+        select: categorySelect,
       });
 
-      if (!existingCategory) {
-        return reply.status(404).send({
-          success: false,
-          error: "카테고리를 찾을 수 없습니다.",
-        });
+      if (!category) {
+        throw new NotFoundError("카테고리");
       }
-
-      const category = await prisma.category.update({
-        where: { id },
-        data: body,
-      });
 
       return reply.send({
         success: true,
         data: category,
       });
-    }
-  );
-
-  // DELETE /categories/:id - 카테고리 삭제 (OWNER만, soft delete)
-  const deleteCategoryParamsSchema = z.object({
-    id: z.string().uuid(),
+    },
   });
 
-  fastify.delete(
-    "/:id",
-    { preHandler: requireOwner },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const { id } = deleteCategoryParamsSchema.parse(request.params);
+  /**
+   * POST /categories
+   * 카테고리 생성 (OWNER 전용)
+   */
+  fastify.post("/", {
+    schema: {
+      tags: ["Categories"],
+      summary: "카테고리 생성",
+      description: "새 카테고리를 생성합니다. OWNER 권한이 필요합니다.",
+      security: [{ bearerAuth: [] }],
+      body: zodToJsonSchema(createCategorySchema),
+      response: {
+        201: {
+          description: "생성 성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            data: { $ref: "#/components/schemas/Category" },
+            message: { type: "string" },
+          },
+        },
+        400: { $ref: "#/components/schemas/ErrorResponse" },
+        401: { $ref: "#/components/schemas/ErrorResponse" },
+        403: { $ref: "#/components/schemas/ErrorResponse" },
+        409: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+    preHandler: requireOwner,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const input = createCategorySchema.parse(request.body);
 
-      const existingCategory = await prisma.category.findUnique({
-        where: { id },
+      // 이름 중복 체크
+      await checkUniqueName("category", input.name);
+
+      // 슬러그 생성
+      const slug = await generateUniqueSlug("category", input.name);
+
+      const category = await prisma.category.create({
+        data: {
+          name: input.name,
+          slug,
+          order: input.order,
+        },
+        select: categorySelect,
       });
 
-      if (!existingCategory) {
-        return reply.status(404).send({
-          success: false,
-          error: "카테고리를 찾을 수 없습니다.",
-        });
+      return reply.status(201).send({
+        success: true,
+        data: category,
+        message: "카테고리가 생성되었습니다.",
+      });
+    },
+  });
+
+  /**
+   * PATCH /categories/:id
+   * 카테고리 수정 (OWNER 전용)
+   */
+  fastify.patch("/:id", {
+    schema: {
+      tags: ["Categories"],
+      summary: "카테고리 수정",
+      description: "카테고리를 수정합니다. OWNER 권한이 필요합니다.",
+      security: [{ bearerAuth: [] }],
+      params: zodToJsonSchema(categoryIdParamsSchema),
+      body: zodToJsonSchema(updateCategorySchema),
+      response: {
+        200: {
+          description: "수정 성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            data: { $ref: "#/components/schemas/Category" },
+            message: { type: "string" },
+          },
+        },
+        401: { $ref: "#/components/schemas/ErrorResponse" },
+        403: { $ref: "#/components/schemas/ErrorResponse" },
+        404: { $ref: "#/components/schemas/ErrorResponse" },
+        409: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+    preHandler: requireOwner,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = categoryIdParamsSchema.parse(request.params);
+      const input = updateCategorySchema.parse(request.body);
+
+      const category = await findByIdOrThrow<{ id: string; name: string }>("category", id);
+
+      // 이름 변경 시 중복 체크 및 슬러그 재생성
+      let newSlug: string | undefined;
+      if (input.name && input.name !== category.name) {
+        await checkUniqueName("category", input.name, id);
+        newSlug = await generateUniqueSlug("category", input.name, id);
       }
 
-      await prisma.category.delete({
+      const updated = await prisma.category.update({
         where: { id },
+        data: {
+          ...(input.name && { name: input.name }),
+          ...(newSlug && { slug: newSlug }),
+          ...(input.order !== undefined && { order: input.order }),
+        },
+        select: categorySelect,
       });
+
+      return reply.send({
+        success: true,
+        data: updated,
+        message: "카테고리가 수정되었습니다.",
+      });
+    },
+  });
+
+  /**
+   * DELETE /categories/:id
+   * 카테고리 삭제 (OWNER 전용)
+   */
+  fastify.delete("/:id", {
+    schema: {
+      tags: ["Categories"],
+      summary: "카테고리 삭제",
+      description: "카테고리를 삭제합니다. OWNER 권한이 필요합니다. 게시글이 있는 카테고리는 삭제할 수 없습니다.",
+      security: [{ bearerAuth: [] }],
+      params: zodToJsonSchema(categoryIdParamsSchema),
+      response: {
+        200: {
+          description: "삭제 성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            message: { type: "string" },
+          },
+        },
+        401: { $ref: "#/components/schemas/ErrorResponse" },
+        403: { $ref: "#/components/schemas/ErrorResponse" },
+        404: { $ref: "#/components/schemas/ErrorResponse" },
+        409: { $ref: "#/components/schemas/ErrorResponse" },
+      },
+    },
+    preHandler: requireOwner,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = categoryIdParamsSchema.parse(request.params);
+
+      const category = await findByIdOrThrow<{ id: string; post_count: number }>(
+        "category",
+        id,
+        { id: true, post_count: true }
+      );
+
+      // 게시글이 있는 카테고리는 삭제 불가
+      if (category.post_count > 0) {
+        throw new ConflictError(
+          `이 카테고리에 ${category.post_count}개의 게시글이 있습니다. 게시글을 먼저 이동하거나 삭제해주세요.`
+        );
+      }
+
+      await prisma.category.delete({ where: { id } });
 
       return reply.send({
         success: true,
         message: "카테고리가 삭제되었습니다.",
       });
-    }
-  );
+    },
+  });
 };
 
 export default categoriesRoutes;

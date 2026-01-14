@@ -1,8 +1,8 @@
 import { FastifyRequest, FastifyReply, HookHandlerDoneFunction } from "fastify";
-import { verifyAccessToken, verifyRefreshToken, generateTokens } from "../utils/auth.js";
-import { prisma } from "../lib/prismaClient.js";
-import { logger } from "../utils/logger.js";
-import { AuthenticatedRequest, User } from "../types/fastify.js";
+import { verifyAccessToken, verifyRefreshToken, generateTokens } from "@/utils/auth.js";
+import { prisma } from "@/lib/prismaClient.js";
+import { logger } from "@/utils/logger.js";
+import { AuthenticatedRequest, User } from "@/types/fastify.js";
 
 // 공통 인증 처리 함수
 async function handleAuthentication(
@@ -115,9 +115,15 @@ export async function optionalAuthenticate(request: FastifyRequest, reply: Fasti
 
 // 관리자 권한 확인 훅
 export async function requireOwner(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-  if (!request.user?.isOwner) {
+  // 먼저 인증 확인
+  await requiredAuthenticate(request, reply);
+  if (reply.sent) return;
+
+  // OWNER 역할 확인
+  if (request.user?.role !== "OWNER") {
     logger.warn("Owner access attempt by non-owner user", {
       userId: request.user?.userId,
+      role: request.user?.role,
       ip: request.ip,
     });
     return reply.status(403).send({

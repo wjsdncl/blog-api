@@ -1,7 +1,9 @@
 import { FastifyRequest, FastifyReply, FastifyError } from "fastify";
 import jwt from "jsonwebtoken";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/lib/generated/prisma/client.js";
 import { ZodError } from "zod";
+import { AppError } from "@/lib/errors.js";
+import { logger } from "@/utils/logger.js";
 
 const { JsonWebTokenError, TokenExpiredError, NotBeforeError } = jwt;
 
@@ -13,18 +15,11 @@ interface ErrorResponse {
   success: false;
   error: string;
   stack?: string;
-  details?: any;
+  details?: Record<string, string[]> | unknown;
   field?: string;
   code?: string;
   status?: number;
 }
-
-// 로깅 함수
-const logError = (error: Error): void => {
-  if (DEBUG_MODE) {
-    console.error("Error details:", error);
-  }
-};
 
 // Fastify 에러 핸들러
 export async function errorHandler(
@@ -39,7 +34,15 @@ export async function errorHandler(
     ...(DEBUG_MODE && { stack: error.stack }),
   };
 
-  logError(error);
+  // 에러 로깅
+  logger.error("Request error", {
+    message: error.message,
+    name: error.name,
+    stack: error.stack,
+    url: request.url,
+    method: request.method,
+    ip: request.ip,
+  });
 
   // Zod 유효성 검증 오류
   if (error instanceof ZodError) {
@@ -140,6 +143,15 @@ export async function errorHandler(
     };
     return reply.status(401).send(response);
   }
+  // 커스텀 AppError 처리
+  else if (error instanceof AppError) {
+    response = {
+      success: false,
+      error: error.message,
+      code: error.code,
+    };
+    return reply.status(error.statusCode).send(response);
+  }
   // Fastify 에러
   else if ("statusCode" in error && error.statusCode) {
     response = {
@@ -148,14 +160,6 @@ export async function errorHandler(
       ...(DEBUG_MODE && { status: error.statusCode }),
     };
     return reply.status(error.statusCode).send(response);
-  }
-  // 권한 관련 오류
-  else if (error.name === "ForbiddenError" || error.message?.includes("permission")) {
-    response = {
-      success: false,
-      error: "권한 오류: 이 작업을 수행할 권한이 없습니다.",
-    };
-    return reply.status(403).send(response);
   }
   // 기타 모든 에러
   else {

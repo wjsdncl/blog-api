@@ -5,17 +5,20 @@ import rateLimit from "@fastify/rate-limit";
 import cookie from "@fastify/cookie";
 import multipart from "@fastify/multipart";
 
-import { config } from "./config/index.js";
-import { logger } from "./utils/logger.js";
-import { errorHandler } from "./middleware/errorHandler.js";
+import { config } from "@/config/index.js";
+import { logger } from "@/utils/logger.js";
+import { errorHandler } from "@/middleware/errorHandler.js";
+import { setupSwagger } from "@/config/swagger.js";
 
 // Routes
-import authRoutes from "./routes/auth.js";
-import postsRoutes from "./routes/posts.js";
-import usersRoutes from "./routes/users.js";
-import commentsRoutes from "./routes/comments.js";
-import categoriesRoutes from "./routes/categories.js";
-import tagsRoutes from "./routes/tags.js";
+import authRoutes from "@/routes/auth.js";
+import usersRoutes from "@/routes/users.js";
+import postsRoutes from "@/routes/posts.js";
+import categoriesRoutes from "@/routes/categories.js";
+import tagsRoutes from "@/routes/tags.js";
+import commentsRoutes from "@/routes/comments.js";
+import portfoliosRoutes from "@/routes/portfolios.js";
+import techStacksRoutes from "@/routes/tech-stacks.js";
 
 const app: FastifyInstance = Fastify({
   logger: false, // Winston을 사용하므로 Fastify 로거는 비활성화
@@ -25,6 +28,9 @@ const app: FastifyInstance = Fastify({
 
 // 플러그인 등록
 async function buildApp(): Promise<FastifyInstance> {
+  // Swagger (config.swagger.enabled로 제어, 프로덕션에서는 Basic Auth 적용)
+  await setupSwagger(app);
+
   // Helmet (보안)
   await app.register(helmet, {
     crossOriginEmbedderPolicy: false,
@@ -81,11 +87,13 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // 라우트 등록
   await app.register(authRoutes, { prefix: "/auth" });
-  await app.register(postsRoutes, { prefix: "/posts" });
   await app.register(usersRoutes, { prefix: "/users" });
-  await app.register(commentsRoutes, { prefix: "/comments" });
+  await app.register(postsRoutes, { prefix: "/posts" });
   await app.register(categoriesRoutes, { prefix: "/categories" });
   await app.register(tagsRoutes, { prefix: "/tags" });
+  await app.register(commentsRoutes, { prefix: "/comments" });
+  await app.register(portfoliosRoutes, { prefix: "/portfolios" });
+  await app.register(techStacksRoutes, { prefix: "/tech-stacks" });
 
   // Error Handler
   app.setErrorHandler(errorHandler);
@@ -106,22 +114,6 @@ async function buildApp(): Promise<FastifyInstance> {
     return reply.status(404).send({
       success: false,
       error: "요청한 리소스를 찾을 수 없습니다.",
-    });
-  });
-
-  // 전역 에러 핸들러
-  app.setErrorHandler(async (error: Error, request: FastifyRequest, reply: FastifyReply) => {
-    logger.error("Unhandled error", {
-      error: error.message,
-      stack: error.stack,
-      url: request.url,
-      method: request.method,
-      ip: request.ip,
-    });
-
-    return reply.status(500).send({
-      success: false,
-      error: process.env.NODE_ENV === "production" ? "서버 내부 오류가 발생했습니다." : error.message,
     });
   });
 

@@ -1,5 +1,5 @@
 import { FastifyRequest } from "fastify";
-import { User as PrismaUser, role } from "@prisma/client";
+import { User as PrismaUser, role } from "@/lib/generated/prisma/client.js";
 
 // JWT 토큰에서 나오는 사용자 정보 타입
 export interface User extends Partial<PrismaUser> {

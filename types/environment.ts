@@ -1,8 +1,14 @@
 // 환경 변수 타입 정의
+export interface OAuthProviderConfig {
+  clientId: string;
+  clientSecret: string;
+}
+
 export interface Config {
   // 서버 설정
   port: number;
   nodeEnv: string;
+  frontendUrl: string;
 
   // 데이터베이스
   databaseUrl: string;
@@ -15,14 +21,11 @@ export interface Config {
   supabaseUrl: string;
   supabaseAnonKey: string;
 
-  // GitHub OAuth 설정
-  github: {
-    clientId?: string;
-    clientSecret?: string;
-    callbackUrl?: string;
-    clientIdDev?: string;
-    clientSecretDev?: string;
-    callbackUrlDev?: string;
+  // OAuth 설정 (공통 callbackUrl 사용)
+  oauthCallbackUrl: string;
+  oauth: {
+    github: OAuthProviderConfig;
+    google: OAuthProviderConfig;
   };
 
   // CORS 설정
@@ -37,6 +40,15 @@ export interface Config {
     secure: boolean;
     sameSite: "none" | "lax" | "strict";
     path: string;
+    maxAge: number;
+  };
+
+  // Swagger 설정
+  swagger: {
+    enabled: boolean;
+    username: string;
+    password: string;
+    hideAdminEndpoints: boolean;
   };
 }
 
