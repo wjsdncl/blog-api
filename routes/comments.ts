@@ -44,6 +44,7 @@ const updateCommentSchema = z.object({
 const commentWithRepliesSelect = {
   ...commentSelect,
   replies: {
+    where: { deleted_at: null },
     select: {
       ...commentSelect,
       _count: {
@@ -113,6 +114,7 @@ const commentsRoutes: FastifyPluginAsync = async (fastify) => {
       const whereCondition = {
         post_id,
         parent_id: null,
+        deleted_at: null,
       };
 
       const [comments, total] = await Promise.all([

@@ -85,7 +85,7 @@ export async function createComment(
   // 답글인 경우 부모 댓글 확인
   if (input.parent_id) {
     const parentComment = await prisma.comment.findUnique({
-      where: { id: input.parent_id },
+      where: { id: input.parent_id, deleted_at: null },
       select: { id: true, post_id: true, parent_id: true },
     });
 
@@ -141,14 +141,14 @@ export async function createComment(
  */
 export async function deleteComment(id: string, userId: string, isOwner: boolean): Promise<void> {
   const comment = await prisma.comment.findUnique({
-    where: { id },
+    where: { id, deleted_at: null },
     select: {
       id: true,
       author_id: true,
       post_id: true,
       _count: {
         select: {
-          replies: true,
+          replies: { where: { deleted_at: null } },
         },
       },
     },
@@ -163,12 +163,20 @@ export async function deleteComment(id: string, userId: string, isOwner: boolean
     throw new ForbiddenError("댓글을 삭제할 권한이 없습니다.");
   }
 
-  // 삭제되는 댓글 수 계산 (본인 + 답글)
+  // 삭제되는 댓글 수 계산 (본인 + 활성 답글)
   const deleteCount = 1 + comment._count.replies;
+  const now = new Date();
 
-  // 트랜잭션으로 댓글 삭제 + comment_count 감소
+  // 트랜잭션으로 soft delete + comment_count 감소
   await prisma.$transaction([
-    prisma.comment.delete({ where: { id } }),
+    prisma.comment.update({
+      where: { id },
+      data: { deleted_at: now },
+    }),
+    prisma.comment.updateMany({
+      where: { parent_id: id, deleted_at: null },
+      data: { deleted_at: now },
+    }),
     prisma.post.update({
       where: { id: comment.post_id },
       data: { comment_count: { decrement: deleteCount } },
@@ -182,7 +190,7 @@ export async function deleteComment(id: string, userId: string, isOwner: boolean
  */
 export async function updateComment(id: string, content: string, userId: string) {
   const comment = await prisma.comment.findUnique({
-    where: { id },
+    where: { id, deleted_at: null },
     select: { id: true, author_id: true },
   });
 

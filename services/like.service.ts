@@ -42,7 +42,7 @@ export async function toggleLike(
     return togglePostLike(targetId, userId);
   } else {
     const comment = await prisma.comment.findUnique({
-      where: { id: targetId },
+      where: { id: targetId, deleted_at: null },
       select: { id: true },
     });
 

@@ -130,13 +130,14 @@ model Tag {
 
 /// 댓글 (Self-Referencing 답글 구조)
 model Comment {
-  id         String   @id @default(uuid()) // 댓글 ID
-  content    String   @db.Text // 댓글 내용
+  id         String    @id @default(uuid()) // 댓글 ID
+  content    String    @db.Text // 댓글 내용
   post_id    String // 게시글 ID
   author_id  String // 작성자 ID
   parent_id  String? // 부모 댓글 ID (NULL=댓글, 값=답글)
-  created_at DateTime @default(now()) // 생성일
-  updated_at DateTime @updatedAt // 수정일
+  deleted_at DateTime? // 삭제 시각 (NULL=활성, 값=soft delete)
+  created_at DateTime  @default(now()) // 생성일
+  updated_at DateTime  @updatedAt // 수정일
 
   post         Post          @relation(fields: [post_id], references: [id], onDelete: Cascade)
   author       User          @relation(fields: [author_id], references: [id], onDelete: Cascade)
@@ -147,7 +148,7 @@ model Comment {
   @@index([post_id])
   @@index([author_id])
   @@index([parent_id])
-  @@index([post_id, created_at])
+  @@index([post_id, deleted_at, created_at])
   @@index([author_id, created_at])
   @@map("comments")
   @@schema("public")

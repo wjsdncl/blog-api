@@ -7,7 +7,9 @@
 - 로그인한 사용자만 댓글 작성 가능
 - 1단계 답글만 허용 (대댓글의 대댓글 불가)
 - 작성자만 수정 가능, 삭제는 작성자 또는 OWNER
-- 댓글 삭제 시 답글도 함께 삭제 (CASCADE)
+- 댓글 삭제는 soft delete (`deleted_at`) 방식
+- 부모 댓글 삭제 시 답글도 함께 soft delete
+- 삭제된 댓글(`deleted_at IS NOT NULL`)은 모든 조회에서 제외
 
 ---
 
@@ -145,6 +147,9 @@
 ```
 
 ### DELETE /comments/:id
+
+Soft delete 방식으로 처리됩니다. 데이터는 DB에 보존되며 `deleted_at`에 삭제 시각이 설정됩니다.
+부모 댓글 삭제 시 모든 답글도 함께 soft delete 됩니다.
 
 ```json
 // Response
