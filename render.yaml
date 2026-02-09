@@ -2,7 +2,7 @@ services:
   - type: web
     name: blog-api
     runtime: node
-    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && tsc && npx tsc-alias
+    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && tsc
     startCommand: npm start
     envVars:
       - key: NODE_ENV
