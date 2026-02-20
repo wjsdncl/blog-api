@@ -366,10 +366,7 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
       const { id } = portfolioIdParamsSchema.parse(request.params);
       const input = updatePortfolioSchema.parse(request.body);
 
-      const portfolio = await findByIdOrThrow<{ id: string; title: string; status: string }>(
-        "portfolio",
-        id
-      );
+      const portfolio = await findByIdOrThrow<{ id: string; title: string; status: string }>("portfolio", id);
 
       // 제목 변경 시 슬러그 재생성
       let newSlug: string | undefined;

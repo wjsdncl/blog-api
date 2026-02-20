@@ -31,7 +31,7 @@ export function generateSlug(text: string): string {
 export async function generateUniqueSlug(
   model: SlugModel,
   text: string,
-  excludeId?: string
+  excludeId?: string,
 ): Promise<string> {
   const baseSlug = generateSlug(text);
   let slug = baseSlug;

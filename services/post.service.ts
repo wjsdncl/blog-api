@@ -263,7 +263,7 @@ interface SyncCategoryCountParams {
  */
 async function syncCategoryPostCount(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  params: SyncCategoryCountParams
+  params: SyncCategoryCountParams,
 ) {
   const { wasPublished, willBePublished, categoryChanged, oldCategoryId, newCategoryId } = params;
 

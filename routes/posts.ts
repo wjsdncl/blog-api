@@ -83,7 +83,8 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
     schema: {
       tags: ["Posts"],
       summary: "게시글 목록 조회",
-      description: "게시글 목록을 페이지네이션하여 조회합니다. 카테고리, 태그, 검색어로 필터링할 수 있습니다.",
+      description:
+        "게시글 목록을 페이지네이션하여 조회합니다. 카테고리, 태그, 검색어로 필터링할 수 있습니다.",
       querystring: zodToJsonSchema(postListQuerySchema),
       response: {
         200: {

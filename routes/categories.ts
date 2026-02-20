@@ -235,7 +235,8 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
     schema: {
       tags: ["Categories"],
       summary: "카테고리 삭제",
-      description: "카테고리를 삭제합니다. OWNER 권한이 필요합니다. 게시글이 있는 카테고리는 삭제할 수 없습니다.",
+      description:
+        "카테고리를 삭제합니다. OWNER 권한이 필요합니다. 게시글이 있는 카테고리는 삭제할 수 없습니다.",
       security: [{ bearerAuth: [] }],
       params: zodToJsonSchema(categoryIdParamsSchema),
       response: {
@@ -257,16 +258,15 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = categoryIdParamsSchema.parse(request.params);
 
-      const category = await findByIdOrThrow<{ id: string; post_count: number }>(
-        "category",
-        id,
-        { id: true, post_count: true }
-      );
+      const category = await findByIdOrThrow<{ id: string; post_count: number }>("category", id, {
+        id: true,
+        post_count: true,
+      });
 
       // 게시글이 있는 카테고리는 삭제 불가
       if (category.post_count > 0) {
         throw new ConflictError(
-          `이 카테고리에 ${category.post_count}개의 게시글이 있습니다. 게시글을 먼저 이동하거나 삭제해주세요.`
+          `이 카테고리에 ${category.post_count}개의 게시글이 있습니다. 게시글을 먼저 이동하거나 삭제해주세요.`,
         );
       }
 
