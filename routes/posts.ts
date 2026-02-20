@@ -59,7 +59,6 @@ const postListSelect = {
     select: {
       id: true,
       name: true,
-      slug: true,
     },
   },
   tags: {
@@ -109,7 +108,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
       addStatusFilter(where, isOwner, status);
 
       if (category) {
-        where.category = { slug: category };
+        where.category = { name: category };
       }
 
       if (tag) {

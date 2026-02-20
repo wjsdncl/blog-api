@@ -1315,7 +1315,6 @@ export type PostScalarFieldEnum = (typeof PostScalarFieldEnum)[keyof typeof Post
 export const CategoryScalarFieldEnum = {
   id: 'id',
   name: 'name',
-  slug: 'slug',
   order: 'order',
   post_count: 'post_count',
   created_at: 'created_at',

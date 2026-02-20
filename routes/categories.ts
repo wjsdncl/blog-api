@@ -7,8 +7,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prismaClient.js";
 import { requireOwner } from "@/middleware/auth.js";
 import { NotFoundError, ConflictError } from "@/lib/errors.js";
-import { generateUniqueSlug } from "@/utils/slug.js";
-import { categoryIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
+import { categoryIdParamsSchema } from "@/utils/schemas.js";
 import { findByIdOrThrow, checkUniqueName } from "@/utils/prismaHelpers.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
@@ -30,7 +29,6 @@ const updateCategorySchema = createCategorySchema.partial();
 const categorySelect = {
   id: true,
   name: true,
-  slug: true,
   order: true,
   post_count: true,
   created_at: true,
@@ -82,15 +80,15 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * GET /categories/:slug
-   * 카테고리 상세 조회 (슬러그)
+   * GET /categories/:id
+   * 카테고리 상세 조회 (ID)
    */
-  fastify.get("/:slug", {
+  fastify.get("/:id", {
     schema: {
       tags: ["Categories"],
       summary: "카테고리 상세 조회",
-      description: "슬러그로 카테고리 상세 정보를 조회합니다.",
-      params: zodToJsonSchema(slugParamsSchema),
+      description: "ID로 카테고리 상세 정보를 조회합니다.",
+      params: zodToJsonSchema(categoryIdParamsSchema),
       response: {
         200: {
           description: "성공",
@@ -104,10 +102,10 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
-      const { slug } = slugParamsSchema.parse(request.params);
+      const { id } = categoryIdParamsSchema.parse(request.params);
 
       const category = await prisma.category.findUnique({
-        where: { slug },
+        where: { id },
         select: categorySelect,
       });
 
@@ -156,13 +154,9 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
       // 이름 중복 체크
       await checkUniqueName("category", input.name);
 
-      // 슬러그 생성
-      const slug = await generateUniqueSlug("category", input.name);
-
       const category = await prisma.category.create({
         data: {
           name: input.name,
-          slug,
           order: input.order,
         },
         select: categorySelect,
@@ -211,18 +205,15 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const category = await findByIdOrThrow<{ id: string; name: string }>("category", id);
 
-      // 이름 변경 시 중복 체크 및 슬러그 재생성
-      let newSlug: string | undefined;
+      // 이름 변경 시 중복 체크
       if (input.name && input.name !== category.name) {
         await checkUniqueName("category", input.name, id);
-        newSlug = await generateUniqueSlug("category", input.name, id);
       }
 
       const updated = await prisma.category.update({
         where: { id },
         data: {
           ...(input.name && { name: input.name }),
-          ...(newSlug && { slug: newSlug }),
           ...(input.order !== undefined && { order: input.order }),
         },
         select: categorySelect,

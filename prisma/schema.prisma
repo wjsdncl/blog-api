@@ -91,7 +91,6 @@ model Post {
 model Category {
   id         String   @id @default(uuid()) // 카테고리 ID
   name       String   @unique // 카테고리명
-  slug       String   @unique // URL 경로
   order      Int      @default(0) // 정렬 순서
   post_count Int      @default(0) // 게시글 수 (비정규화)
   created_at DateTime @default(now()) // 생성일
@@ -100,7 +99,6 @@ model Category {
   posts      Post[]
   portfolios Portfolio[]
 
-  @@index([slug])
   @@index([order])
   @@index([post_count])
   @@map("categories")

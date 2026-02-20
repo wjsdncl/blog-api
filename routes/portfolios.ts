@@ -77,7 +77,6 @@ const portfolioListSelect = {
     select: {
       id: true,
       name: true,
-      slug: true,
     },
   },
   tags: {
@@ -153,7 +152,7 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
 
       // 카테고리 필터
       if (category) {
-        where.category = { slug: category };
+        where.category = { name: category };
       }
 
       // 태그 필터

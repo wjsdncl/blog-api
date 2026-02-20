@@ -4,7 +4,7 @@
  */
 import { prisma } from "@/lib/prismaClient.js";
 
-type SlugModel = "post" | "category" | "tag" | "portfolio";
+type SlugModel = "post" | "tag" | "portfolio";
 
 /**
  * 텍스트에서 슬러그 생성
@@ -41,8 +41,6 @@ export async function generateUniqueSlug(
     switch (model) {
       case "post":
         return prisma.post.findUnique({ where: { slug }, select: { id: true } });
-      case "category":
-        return prisma.category.findUnique({ where: { slug }, select: { id: true } });
       case "tag":
         return prisma.tag.findUnique({ where: { slug }, select: { id: true } });
       case "portfolio":

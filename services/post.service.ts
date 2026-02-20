@@ -50,7 +50,6 @@ const postListSelect = {
     select: {
       id: true,
       name: true,
-      slug: true,
     },
   },
   tags: {
