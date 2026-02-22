@@ -19,6 +19,7 @@ import tagsRoutes from "@/routes/tags.js";
 import commentsRoutes from "@/routes/comments.js";
 import portfoliosRoutes from "@/routes/portfolios.js";
 import techStacksRoutes from "@/routes/tech-stacks.js";
+import uploadRoutes from "@/routes/upload.js";
 
 const app: FastifyInstance = Fastify({
   logger: false, // Winston을 사용하므로 Fastify 로거는 비활성화
@@ -94,6 +95,7 @@ async function buildApp(): Promise<FastifyInstance> {
   await app.register(commentsRoutes, { prefix: "/comments" });
   await app.register(portfoliosRoutes, { prefix: "/portfolios" });
   await app.register(techStacksRoutes, { prefix: "/tech-stacks" });
+  await app.register(uploadRoutes, { prefix: "/upload" });
 
   // Error Handler
   app.setErrorHandler(errorHandler);
