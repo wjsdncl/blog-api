@@ -60,6 +60,6 @@
     "format:prisma": "prisma format"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed": "tsx prisma/seed.ts"
   }
 }
