@@ -233,7 +233,7 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
       assertPublicAccess(portfolio, isOwner, "포트폴리오");
 
       // 조회수 증가 (OWNER가 아닌 경우)
-      await incrementViewCount("portfolio", portfolio.id, isOwner);
+      await incrementViewCount("portfolio", portfolio.id, isOwner, request.ip);
 
       return reply.send({
         success: true,

@@ -23,6 +23,7 @@ import uploadRoutes from "@/routes/upload.js";
 
 const app: FastifyInstance = Fastify({
   logger: false, // Winston을 사용하므로 Fastify 로거는 비활성화
+  trustProxy: true, // Render 등 리버스 프록시 환경에서 실제 클라이언트 IP 사용
   bodyLimit: 10485760, // 10MB
   requestIdLogLabel: "requestId",
 });

@@ -124,15 +124,34 @@ export async function checkUniqueName(
 // View Count Helper
 // ============================================
 
+const VIEW_WINDOW_MS = 24 * 60 * 60 * 1000; // 24시간
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1시간마다 정리
+const viewCache = new Map<string, number>(); // "model:entityId:ip" → 만료 timestamp
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, expiresAt] of viewCache) {
+    if (expiresAt <= now) viewCache.delete(key);
+  }
+}, CLEANUP_INTERVAL_MS);
+
 /**
- * 조회수 증가 (OWNER가 아닌 경우에만)
+ * 조회수 증가 (OWNER 제외, 같은 IP는 24시간 내 중복 무시)
  */
 export async function incrementViewCount(
   model: "post" | "portfolio",
   entityId: string,
-  isOwner: boolean
+  isOwner: boolean,
+  ip?: string
 ): Promise<void> {
   if (isOwner) return;
+
+  const cacheKey = `${model}:${entityId}:${ip ?? "unknown"}`;
+  const now = Date.now();
+
+  if (viewCache.has(cacheKey) && viewCache.get(cacheKey)! > now) return;
+
+  viewCache.set(cacheKey, now + VIEW_WINDOW_MS);
 
   const prismaModel = prisma[model] as { update: (args: unknown) => Promise<unknown> };
 

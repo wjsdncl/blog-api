@@ -196,7 +196,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       assertPublicAccess(post, isOwner, "게시글");
-      await incrementViewCount("post", post.id, isOwner);
+      await incrementViewCount("post", post.id, isOwner, request.ip);
 
       const isLiked = request.user && Array.isArray(post.postLikes) && post.postLikes.length > 0;
 
