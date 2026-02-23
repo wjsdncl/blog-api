@@ -54,7 +54,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "array", items: { type: "object" } },
+            data: { type: "array", items: { type: "object", additionalProperties: true } },
             totalPostCount: { type: "integer", description: "전체 게시글 수" },
           },
         },
@@ -95,7 +95,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
           },
         },
         404: { type: "object", properties: { success: { type: "boolean" }, error: { type: "string" } } },
@@ -137,7 +137,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
             message: { type: "string" },
           },
         },
@@ -188,7 +188,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
             message: { type: "string" },
           },
         },

@@ -132,8 +132,8 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "array", items: { type: "object" } },
-            pagination: { type: "object" },
+            data: { type: "array", items: { type: "object", additionalProperties: true } },
+            pagination: { type: "object", additionalProperties: true },
           },
         },
       },
@@ -209,7 +209,7 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
           },
         },
         404: { type: "object", properties: { success: { type: "boolean" }, error: { type: "string" } } },
@@ -259,7 +259,7 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
             message: { type: "string" },
           },
         },
@@ -351,7 +351,7 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
             message: { type: "string" },
           },
         },

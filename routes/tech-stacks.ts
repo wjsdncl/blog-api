@@ -63,9 +63,10 @@ const techStacksRoutes: FastifyPluginAsync = async (fastify) => {
             success: { type: "boolean" },
             data: {
               type: "object",
+              additionalProperties: true,
               properties: {
-                items: { type: "array", items: { type: "object" } },
-                grouped: { type: "object" },
+                items: { type: "array", items: { type: "object", additionalProperties: true } },
+                grouped: { type: "object", additionalProperties: true },
               },
             },
           },
@@ -122,7 +123,7 @@ const techStacksRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
           },
         },
         404: { type: "object", properties: { success: { type: "boolean" }, error: { type: "string" } } },
@@ -167,7 +168,7 @@ const techStacksRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
             message: { type: "string" },
           },
         },
@@ -218,7 +219,7 @@ const techStacksRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
             message: { type: "string" },
           },
         },

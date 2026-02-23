@@ -20,6 +20,7 @@ import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 const postListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
+  order: z.enum(["newest", "oldest", "like"]).default("newest"),
   status: z.enum(["DRAFT", "PUBLISHED", "SCHEDULED"]).optional(),
   category: z.string().optional(),
   tag: z.string().optional(),
@@ -92,15 +93,15 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "array", items: { type: "object" } },
-            pagination: { type: "object" },
+            data: { type: "array", items: { type: "object", additionalProperties: true } },
+            pagination: { type: "object", additionalProperties: true },
           },
         },
       },
     },
     preHandler: optionalAuthenticate,
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
-      const { page, limit, status, category, tag, search } = postListQuerySchema.parse(request.query);
+      const { page, limit, order, status, category, tag, search } = postListQuerySchema.parse(request.query);
       const skip = (page - 1) * limit;
       const isOwner = request.user?.role === "OWNER";
 
@@ -123,11 +124,17 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
         ];
       }
 
+      const orderBy = order === "like"
+        ? { like_count: "desc" as const }
+        : order === "oldest"
+          ? { created_at: "asc" as const }
+          : { created_at: "desc" as const };
+
       const [posts, total] = await Promise.all([
         prisma.post.findMany({
           where,
           select: postListSelect,
-          orderBy: { created_at: "desc" },
+          orderBy,
           skip,
           take: limit,
         }),
@@ -167,7 +174,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
           },
         },
         404: { type: "object", properties: { success: { type: "boolean" }, error: { type: "string" } } },
@@ -228,7 +235,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
             message: { type: "string" },
           },
         },
@@ -267,7 +274,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           properties: {
             success: { type: "boolean" },
-            data: { type: "object" },
+            data: { type: "object", additionalProperties: true },
             message: { type: "string" },
           },
         },
