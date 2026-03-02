@@ -60,6 +60,7 @@ export const config: Config = {
     sameSite: isProduction ? "lax" : "none",
     path: "/",
     maxAge: 60 * 60 * 24 * 7, // 7일 (초 단위)
+    ...(isProduction && { domain: ".wjdalswo.xyz" }),
   },
 
   // Swagger 설정

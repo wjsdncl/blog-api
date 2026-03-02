@@ -41,6 +41,7 @@ export interface Config {
     sameSite: "none" | "lax" | "strict";
     path: string;
     maxAge: number;
+    domain?: string;
   };
 
   // Swagger 설정
