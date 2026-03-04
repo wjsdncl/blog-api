@@ -105,10 +105,26 @@ const commentsRoutes: FastifyPluginAsync = async (fastify) => {
         deleted_at: null,
       };
 
+      const userLikeSelect = request.user
+        ? { commentLikes: { where: { user_id: request.user.userId }, select: { id: true } } }
+        : {};
+
+      const selectWithUserLike = {
+        ...commentWithRepliesSelect,
+        ...userLikeSelect,
+        replies: {
+          ...commentWithRepliesSelect.replies,
+          select: {
+            ...commentWithRepliesSelect.replies.select,
+            ...userLikeSelect,
+          },
+        },
+      };
+
       const [comments, total] = await Promise.all([
         prisma.comment.findMany({
           where: whereCondition,
-          select: commentWithRepliesSelect,
+          select: selectWithUserLike,
           orderBy: { created_at: "desc" },
           skip,
           take: limit,
@@ -116,34 +132,22 @@ const commentsRoutes: FastifyPluginAsync = async (fastify) => {
         prisma.comment.count({ where: whereCondition }),
       ]);
 
-      // 사용자별 좋아요 여부 추가
-      let userLikedCommentIds: Set<string> = new Set();
-      if (request.user) {
-        const userLikes = await prisma.commentLike.findMany({
-          where: {
-            user_id: request.user.userId,
-            comment_id: {
-              in: [
-                ...comments.map((c) => c.id),
-                ...comments.flatMap((c) => c.replies.map((r) => r.id)),
-              ],
-            },
-          },
-          select: { comment_id: true },
-        });
-        userLikedCommentIds = new Set(userLikes.map((l) => l.comment_id));
-      }
-
       const data = comments.map((comment) => ({
         ...comment,
         like_count: comment._count.commentLikes,
-        is_liked: userLikedCommentIds.has(comment.id),
+        is_liked: (comment as Record<string, unknown>).commentLikes
+          ? ((comment as Record<string, unknown>).commentLikes as unknown[]).length > 0
+          : false,
         _count: undefined,
+        commentLikes: undefined,
         replies: comment.replies.map((reply) => ({
           ...reply,
           like_count: reply._count.commentLikes,
-          is_liked: userLikedCommentIds.has(reply.id),
+          is_liked: (reply as Record<string, unknown>).commentLikes
+            ? ((reply as Record<string, unknown>).commentLikes as unknown[]).length > 0
+            : false,
           _count: undefined,
+          commentLikes: undefined,
         })),
       }));
 
