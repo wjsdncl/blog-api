@@ -23,7 +23,7 @@ const updateProfileSchema = z.object({
 
 const userListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
   search: z.string().max(100).optional(),
   role: z.enum(["USER", "OWNER"]).optional(),
   is_active: z.enum(["true", "false"]).transform((v) => v === "true").optional(),

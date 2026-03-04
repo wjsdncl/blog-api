@@ -182,23 +182,26 @@ export function assertPublicAccess(
 
 
 /**
- * 상태 필터 조건 추가
+ * 상태 필터 조건 생성 (순수 함수)
  * OWNER는 모든 상태 조회 가능, 일반 사용자는 PUBLISHED만
  */
-export function addStatusFilter(
-  where: Record<string, unknown>,
+export function buildStatusFilter(
   isOwner: boolean,
   requestedStatus?: string
-): void {
+): Record<string, unknown> {
   if (isOwner && requestedStatus) {
-    where.status = requestedStatus;
-  } else if (!isOwner) {
-    where.status = "PUBLISHED";
-    where.OR = [
-      { published_at: null },
-      { published_at: { lte: new Date() } },
-    ];
+    return { status: requestedStatus };
   }
+  if (!isOwner) {
+    return {
+      status: "PUBLISHED",
+      OR: [
+        { published_at: null },
+        { published_at: { lte: new Date() } },
+      ],
+    };
+  }
+  return {};
 }
 
 

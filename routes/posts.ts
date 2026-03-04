@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prismaClient.js";
 import { optionalAuthenticate, requiredAuthenticate, requireOwner } from "@/middleware/auth.js";
 import { NotFoundError } from "@/lib/errors.js";
 import { postIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
-import { addStatusFilter, assertPublicAccess, incrementViewCount } from "@/utils/prismaHelpers.js";
+import { buildStatusFilter, assertPublicAccess, incrementViewCount } from "@/utils/prismaHelpers.js";
 import { toggleLike } from "@/services/like.service.js";
 import { createPost, updatePost, deletePost, postListSelect, postDetailSelect } from "@/services/post.service.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
@@ -66,9 +66,9 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
       const skip = (page - 1) * limit;
       const isOwner = request.user?.role === "OWNER";
 
-      const where: Record<string, unknown> = {};
-
-      addStatusFilter(where, isOwner, status);
+      const where: Record<string, unknown> = {
+        ...buildStatusFilter(isOwner, status),
+      };
 
       if (category) {
         where.category = { name: category };

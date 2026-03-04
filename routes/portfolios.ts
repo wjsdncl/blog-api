@@ -11,7 +11,7 @@ import { generateUniqueSlug } from "@/utils/slug.js";
 import { portfolioIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
 import {
   findByIdOrThrow,
-  addStatusFilter,
+  buildStatusFilter,
   assertPublicAccess,
   incrementViewCount,
   calculatePublishedAt,
@@ -132,11 +132,9 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
       const skip = (page - 1) * limit;
       const isOwner = request.user?.role === "OWNER";
 
-      // 검색 조건
-      const where: Record<string, unknown> = {};
-
-      // 상태 필터 (OWNER만 DRAFT, SCHEDULED 조회 가능)
-      addStatusFilter(where, isOwner, status);
+      const where: Record<string, unknown> = {
+        ...buildStatusFilter(isOwner, status),
+      };
 
       // 카테고리 필터
       if (category) {
