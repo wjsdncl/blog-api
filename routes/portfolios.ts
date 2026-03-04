@@ -7,16 +7,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prismaClient.js";
 import { optionalAuthenticate, requireOwner } from "@/middleware/auth.js";
 import { NotFoundError } from "@/lib/errors.js";
-import { generateUniqueSlug } from "@/utils/slug.js";
 import { portfolioIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
-import {
-  findByIdOrThrow,
-  buildStatusFilter,
-  assertPublicAccess,
-  incrementViewCount,
-  calculatePublishedAt,
-  validateCategoryId,
-} from "@/utils/prismaHelpers.js";
+import { buildStatusFilter, assertPublicAccess, incrementViewCount } from "@/utils/prismaHelpers.js";
+import { createPortfolio, updatePortfolio, deletePortfolio, portfolioListSelect, portfolioDetailSelect } from "@/services/portfolio.service.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
 const portfolioListQuerySchema = z.object({
@@ -52,57 +45,6 @@ const createPortfolioSchema = z.object({
 });
 
 const updatePortfolioSchema = createPortfolioSchema.partial();
-
-const portfolioListSelect = {
-  id: true,
-  title: true,
-  slug: true,
-  excerpt: true,
-  cover_image: true,
-  start_date: true,
-  end_date: true,
-  status: true,
-  view_count: true,
-  order: true,
-  published_at: true,
-  created_at: true,
-  category: {
-    select: {
-      id: true,
-      name: true,
-    },
-  },
-  tags: {
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-    },
-  },
-  techStacks: {
-    select: {
-      id: true,
-      name: true,
-      category: true,
-    },
-  },
-} as const;
-
-const portfolioDetailSelect = {
-  ...portfolioListSelect,
-  content: true,
-  updated_at: true,
-  links: {
-    select: {
-      id: true,
-      type: true,
-      url: true,
-      label: true,
-      order: true,
-    },
-    orderBy: { order: "asc" as const },
-  },
-} as const;
 
 const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -258,51 +200,7 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: requireOwner,
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
       const input = createPortfolioSchema.parse(request.body);
-
-      // 슬러그 자동 생성
-      const slug = await generateUniqueSlug("portfolio", input.title);
-
-      await validateCategoryId(input.category_id);
-
-      // 발행 상태에 따른 published_at 설정
-      const publishedAt = calculatePublishedAt(input.status, input.published_at);
-
-      const portfolio = await prisma.portfolio.create({
-        data: {
-          title: input.title,
-          slug,
-          content: input.content,
-          excerpt: input.excerpt,
-          cover_image: input.cover_image,
-          start_date: input.start_date,
-          end_date: input.end_date,
-          status: input.status,
-          order: input.order,
-          category_id: input.category_id,
-          published_at: publishedAt,
-          ...(input.tag_ids && {
-            tags: {
-              connect: input.tag_ids.map((id) => ({ id })),
-            },
-          }),
-          ...(input.tech_stack_ids && {
-            techStacks: {
-              connect: input.tech_stack_ids.map((id) => ({ id })),
-            },
-          }),
-          ...(input.links && {
-            links: {
-              create: input.links.map((link, index) => ({
-                type: link.type,
-                url: link.url,
-                label: link.label,
-                order: link.order ?? index,
-              })),
-            },
-          }),
-        },
-        select: portfolioDetailSelect,
-      });
+      const portfolio = await createPortfolio(input);
 
       return reply.status(201).send({
         success: true,
@@ -344,65 +242,7 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = portfolioIdParamsSchema.parse(request.params);
       const input = updatePortfolioSchema.parse(request.body);
-
-      const portfolio = await findByIdOrThrow<{ id: string; title: string; status: string }>("portfolio", id);
-
-      // 제목 변경 시 슬러그 재생성
-      let newSlug: string | undefined;
-      if (input.title && input.title !== portfolio.title) {
-        newSlug = await generateUniqueSlug("portfolio", input.title, id);
-      }
-
-      await validateCategoryId(input.category_id);
-
-      // 발행 상태 변경 시 published_at 설정
-      const publishedAt = calculatePublishedAt(input.status, input.published_at, portfolio.status);
-
-      // 링크 업데이트 (전체 교체)
-      if (input.links !== undefined) {
-        // 기존 링크 삭제
-        await prisma.portfolioLink.deleteMany({
-          where: { portfolio_id: id },
-        });
-      }
-
-      const updated = await prisma.portfolio.update({
-        where: { id },
-        data: {
-          ...(input.title && { title: input.title }),
-          ...(newSlug && { slug: newSlug }),
-          ...(input.content && { content: input.content }),
-          ...(input.excerpt !== undefined && { excerpt: input.excerpt }),
-          ...(input.cover_image !== undefined && { cover_image: input.cover_image }),
-          ...(input.start_date !== undefined && { start_date: input.start_date }),
-          ...(input.end_date !== undefined && { end_date: input.end_date }),
-          ...(input.status && { status: input.status }),
-          ...(input.order !== undefined && { order: input.order }),
-          ...(input.category_id !== undefined && { category_id: input.category_id }),
-          ...(publishedAt && { published_at: publishedAt }),
-          ...(input.tag_ids && {
-            tags: {
-              set: input.tag_ids.map((tagId) => ({ id: tagId })),
-            },
-          }),
-          ...(input.tech_stack_ids && {
-            techStacks: {
-              set: input.tech_stack_ids.map((techId) => ({ id: techId })),
-            },
-          }),
-          ...(input.links && {
-            links: {
-              create: input.links.map((link, index) => ({
-                type: link.type,
-                url: link.url,
-                label: link.label,
-                order: link.order ?? index,
-              })),
-            },
-          }),
-        },
-        select: portfolioDetailSelect,
-      });
+      const updated = await updatePortfolio(id, input);
 
       return reply.send({
         success: true,
@@ -440,11 +280,7 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: requireOwner,
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = portfolioIdParamsSchema.parse(request.params);
-
-      await findByIdOrThrow("portfolio", id);
-
-      // 포트폴리오 삭제 (CASCADE로 링크도 함께 삭제됨)
-      await prisma.portfolio.delete({ where: { id } });
+      await deletePortfolio(id);
 
       return reply.send({
         success: true,
