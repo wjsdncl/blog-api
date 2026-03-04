@@ -8,7 +8,6 @@ import { prisma } from "@/lib/prismaClient.js";
 import { requiredAuthenticate, optionalAuthenticate, requireOwner } from "@/middleware/auth.js";
 import { NotFoundError, ConflictError, BadRequestError } from "@/lib/errors.js";
 import { userIdParamsSchema } from "@/utils/schemas.js";
-import { findByIdOrThrow, checkUniqueField } from "@/utils/prismaHelpers.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
 

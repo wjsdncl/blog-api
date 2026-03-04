@@ -44,11 +44,3 @@ export function verifyRefreshToken(token: string): JwtPayload {
   const decoded = jwt.verify(token, JWT_REFRESH_SECRET);
   return decoded as JwtPayload;
 }
-
-/** "Bearer xxx" 헤더에서 토큰 부분만 추출 */
-export function extractTokenFromHeader(authHeader?: string): string | null {
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return null;
-  }
-  return authHeader.substring(7);
-}

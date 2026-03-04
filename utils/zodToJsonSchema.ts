@@ -2,7 +2,7 @@
  * Zod to JSON Schema Converter
  * Zod 스키마를 JSON Schema로 변환
  */
-import { z, ZodType, ZodFirstPartyTypeKind } from "zod";
+import { ZodType, ZodFirstPartyTypeKind } from "zod";
 
 type JsonSchema = {
   type?: string;
@@ -136,92 +136,4 @@ export function zodToJsonSchema(schema: ZodType): JsonSchema {
     default:
       return {};
   }
-}
-
-/**
- * Fastify 스키마 옵션 생성 헬퍼
- */
-export function createRouteSchema(options: {
-  tags?: string[];
-  summary?: string;
-  description?: string;
-  body?: ZodType;
-  querystring?: ZodType;
-  params?: ZodType;
-  response?: Record<number, { description: string; schema?: ZodType; ref?: string }>;
-  security?: Array<Record<string, string[]>>;
-}) {
-  const schema: Record<string, unknown> = {
-    tags: options.tags,
-    summary: options.summary,
-    description: options.description,
-  };
-
-  if (options.body) {
-    schema.body = zodToJsonSchema(options.body);
-  }
-
-  if (options.querystring) {
-    schema.querystring = zodToJsonSchema(options.querystring);
-  }
-
-  if (options.params) {
-    schema.params = zodToJsonSchema(options.params);
-  }
-
-  if (options.response) {
-    schema.response = {};
-    for (const [code, { description, schema: respSchema, ref }] of Object.entries(options.response)) {
-      if (ref) {
-        (schema.response as Record<string, unknown>)[code] = {
-          description,
-          content: {
-            "application/json": {
-              schema: { $ref: `#/components/schemas/${ref}` },
-            },
-          },
-        };
-      } else if (respSchema) {
-        (schema.response as Record<string, unknown>)[code] = {
-          description,
-          ...zodToJsonSchema(respSchema),
-        };
-      }
-    }
-  }
-
-  if (options.security) {
-    schema.security = options.security;
-  }
-
-  return { schema };
-}
-
-/**
- * 성공 응답 스키마 생성
- */
-export function successResponseSchema(dataSchema: ZodType, message?: string) {
-  return z.object({
-    success: z.literal(true),
-    data: dataSchema,
-    ...(message && { message: z.string() }),
-  });
-}
-
-/**
- * 페이지네이션 응답 스키마 생성
- */
-export function paginatedResponseSchema(itemSchema: ZodType) {
-  return z.object({
-    success: z.literal(true),
-    data: z.array(itemSchema),
-    pagination: z.object({
-      page: z.number(),
-      limit: z.number(),
-      total: z.number(),
-      totalPages: z.number(),
-      hasNext: z.boolean(),
-      hasPrev: z.boolean(),
-    }),
-  });
 }
