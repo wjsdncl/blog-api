@@ -6,8 +6,8 @@ import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "@/lib/prismaClient.js";
 import { requiredAuthenticate, optionalAuthenticate, requireOwner } from "@/middleware/auth.js";
-import { NotFoundError, ConflictError, BadRequestError } from "@/lib/errors.js";
-import { buildPaginationMeta } from "@/utils/prismaHelpers.js";
+import { NotFoundError, BadRequestError } from "@/lib/errors.js";
+import { buildPaginationMeta, checkUniqueField } from "@/utils/prismaHelpers.js";
 import { userIdParamsSchema } from "@/utils/schemas.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
@@ -197,18 +197,13 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.send({
           success: true,
           data: user,
+          message: "변경 사항이 없습니다.",
         });
       }
 
       // username 중복 체크
       if (input.username) {
-        const existing = await prisma.user.findUnique({
-          where: { username: input.username },
-        });
-
-        if (existing && existing.id !== request.user!.userId) {
-          throw new ConflictError("이미 사용 중인 사용자명입니다.");
-        }
+        await checkUniqueField("user", "username", input.username, request.user!.userId);
       }
 
       const user = await prisma.user.update({

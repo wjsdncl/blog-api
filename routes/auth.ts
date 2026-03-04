@@ -332,12 +332,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             role: session.role,
           },
         });
-      } catch {
-        // 토큰이 만료된 경우
-        return reply.send({
-          success: true,
-          data: { authenticated: false },
-        });
+      } catch (error) {
+        if (error instanceof Error && ["TokenExpiredError", "JsonWebTokenError", "NotBeforeError"].includes(error.name)) {
+          return reply.send({
+            success: true,
+            data: { authenticated: false },
+          });
+        }
+        throw error;
       }
     },
   });

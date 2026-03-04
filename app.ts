@@ -59,7 +59,7 @@ async function buildApp(): Promise<FastifyInstance> {
   await app.register(rateLimit, {
     max: 100,
     timeWindow: "15 minutes",
-    errorResponseBuilder: (req, context) => {
+    errorResponseBuilder: (_req, _context) => {
       return {
         success: false,
         error: "너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.",

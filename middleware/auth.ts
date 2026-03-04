@@ -66,8 +66,9 @@ async function handleAuthentication(
         request.user = decoded as User;
       }
     } catch (dbErr: unknown) {
-      logger.error("Failed to fetch user during auth", { error: dbErr instanceof Error ? dbErr.message : String(dbErr) });
-      request.user = decoded as User; // fallback
+      // DB 장애 시 JWT 페이로드로 폴백 — role 등 최신 상태가 반영되지 않을 수 있음
+      logger.warn("DB lookup failed during auth, falling back to JWT payload", { error: dbErr instanceof Error ? dbErr.message : String(dbErr) });
+      request.user = decoded as User;
     }
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "TokenExpiredError" && refreshToken) {
