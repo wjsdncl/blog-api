@@ -175,6 +175,46 @@ const schemas = {
   },
 } as const;
 
+function stripSchemaId({ $id, ...rest }: Record<string, unknown>): Record<string, unknown> {
+  return rest;
+}
+
+function buildComponentSchemas(): Record<string, unknown> {
+  const base = Object.fromEntries(
+    Object.entries(schemas).map(([key, schema]) => [key, stripSchemaId(schema as Record<string, unknown>)])
+  );
+
+  return {
+    ...base,
+    Post: {
+      ...(base.Post as Record<string, unknown>),
+      properties: {
+        ...((schemas.Post as Record<string, unknown>).properties as Record<string, unknown>),
+        category: { $ref: "#/components/schemas/Category" },
+        tags: { type: "array", items: { $ref: "#/components/schemas/Tag" } },
+      },
+    },
+    Comment: {
+      ...(base.Comment as Record<string, unknown>),
+      properties: {
+        ...((schemas.Comment as Record<string, unknown>).properties as Record<string, unknown>),
+        author: { $ref: "#/components/schemas/CommentAuthor" },
+        replies: { type: "array", items: { $ref: "#/components/schemas/Comment" } },
+      },
+    },
+    Portfolio: {
+      ...(base.Portfolio as Record<string, unknown>),
+      properties: {
+        ...((schemas.Portfolio as Record<string, unknown>).properties as Record<string, unknown>),
+        category: { $ref: "#/components/schemas/Category" },
+        tags: { type: "array", items: { $ref: "#/components/schemas/Tag" } },
+        techStacks: { type: "array", items: { $ref: "#/components/schemas/TechStack" } },
+        links: { type: "array", items: { $ref: "#/components/schemas/PortfolioLink" } },
+      },
+    },
+  };
+}
+
 export async function setupSwagger(app: FastifyInstance): Promise<void> {
   // 스키마를 Fastify에 등록 (라우트에서 $ref 사용 가능하게 함)
   Object.values(schemas).forEach((schema) => {
@@ -246,153 +286,7 @@ export async function setupSwagger(app: FastifyInstance): Promise<void> {
             description: "리프레시 토큰 쿠키",
           },
         },
-        schemas: {
-          // 공통 응답 스키마
-          SuccessResponse: {
-            type: "object",
-            properties: {
-              success: { type: "boolean", example: true },
-              data: { type: "object" },
-              message: { type: "string" },
-            },
-          },
-          ErrorResponse: {
-            type: "object",
-            properties: {
-              success: { type: "boolean", example: false },
-              error: { type: "string" },
-            },
-          },
-          PaginationMeta: {
-            type: "object",
-            properties: {
-              page: { type: "integer", example: 1 },
-              limit: { type: "integer", example: 10 },
-              total: { type: "integer", example: 100 },
-              totalPages: { type: "integer", example: 10 },
-              hasNext: { type: "boolean", example: true },
-              hasPrev: { type: "boolean", example: false },
-            },
-          },
-          // 엔티티 스키마
-          User: {
-            type: "object",
-            properties: {
-              id: { type: "string", format: "uuid" },
-              username: { type: "string", example: "johndoe" },
-              email: { type: "string", format: "email" },
-              role: { type: "string", enum: ["OWNER", "MEMBER"] },
-              is_active: { type: "boolean" },
-              created_at: { type: "string", format: "date-time" },
-            },
-          },
-          Post: {
-            type: "object",
-            properties: {
-              id: { type: "string", format: "uuid" },
-              title: { type: "string", example: "첫 번째 게시글" },
-              slug: { type: "string", example: "first-post" },
-              content: { type: "string" },
-              excerpt: { type: "string" },
-              cover_image: { type: "string", format: "uri" },
-              status: { type: "string", enum: ["DRAFT", "PUBLISHED", "SCHEDULED"] },
-              view_count: { type: "integer" },
-              like_count: { type: "integer" },
-              comment_count: { type: "integer" },
-              published_at: { type: "string", format: "date-time", nullable: true },
-              created_at: { type: "string", format: "date-time" },
-              updated_at: { type: "string", format: "date-time" },
-              category: { $ref: "#/components/schemas/Category" },
-              tags: { type: "array", items: { $ref: "#/components/schemas/Tag" } },
-            },
-          },
-          Category: {
-            type: "object",
-            properties: {
-              id: { type: "string", format: "uuid" },
-              name: { type: "string", example: "개발" },
-              slug: { type: "string", example: "개발" },
-              order: { type: "integer" },
-              post_count: { type: "integer" },
-              created_at: { type: "string", format: "date-time" },
-            },
-          },
-          Tag: {
-            type: "object",
-            properties: {
-              id: { type: "string", format: "uuid" },
-              name: { type: "string", example: "TypeScript" },
-              slug: { type: "string", example: "typescript" },
-              created_at: { type: "string", format: "date-time" },
-            },
-          },
-          Comment: {
-            type: "object",
-            properties: {
-              id: { type: "string", format: "uuid" },
-              content: { type: "string" },
-              post_id: { type: "string", format: "uuid" },
-              parent_id: { type: "string", format: "uuid", nullable: true },
-              like_count: { type: "integer" },
-              is_liked: { type: "boolean" },
-              created_at: { type: "string", format: "date-time" },
-              updated_at: { type: "string", format: "date-time" },
-              author: { $ref: "#/components/schemas/CommentAuthor" },
-              replies: { type: "array", items: { $ref: "#/components/schemas/Comment" } },
-            },
-          },
-          CommentAuthor: {
-            type: "object",
-            properties: {
-              id: { type: "string", format: "uuid" },
-              username: { type: "string" },
-              role: { type: "string", enum: ["OWNER", "MEMBER"] },
-            },
-          },
-          Portfolio: {
-            type: "object",
-            properties: {
-              id: { type: "string", format: "uuid" },
-              title: { type: "string" },
-              slug: { type: "string" },
-              content: { type: "string" },
-              excerpt: { type: "string" },
-              cover_image: { type: "string", format: "uri" },
-              start_date: { type: "string", format: "date" },
-              end_date: { type: "string", format: "date", nullable: true },
-              status: { type: "string", enum: ["DRAFT", "PUBLISHED", "SCHEDULED"] },
-              view_count: { type: "integer" },
-              order: { type: "integer" },
-              published_at: { type: "string", format: "date-time", nullable: true },
-              created_at: { type: "string", format: "date-time" },
-              updated_at: { type: "string", format: "date-time" },
-              category: { $ref: "#/components/schemas/Category" },
-              tags: { type: "array", items: { $ref: "#/components/schemas/Tag" } },
-              techStacks: { type: "array", items: { $ref: "#/components/schemas/TechStack" } },
-              links: { type: "array", items: { $ref: "#/components/schemas/PortfolioLink" } },
-            },
-          },
-          PortfolioLink: {
-            type: "object",
-            properties: {
-              id: { type: "string", format: "uuid" },
-              type: { type: "string", example: "github" },
-              url: { type: "string", format: "uri" },
-              label: { type: "string" },
-              order: { type: "integer" },
-            },
-          },
-          TechStack: {
-            type: "object",
-            properties: {
-              id: { type: "string", format: "uuid" },
-              name: { type: "string", example: "React" },
-              category: { type: "string", example: "Frontend" },
-              portfolio_count: { type: "integer" },
-              created_at: { type: "string", format: "date-time" },
-            },
-          },
-        },
+        schemas: buildComponentSchemas() as Record<string, Record<string, unknown>>,
       },
     },
     // 숨길 태그의 라우트는 문서에서 제외

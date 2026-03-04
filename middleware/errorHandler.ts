@@ -69,64 +69,63 @@ export async function errorHandler(
   }
   // Prisma 알려진 요청 오류
   else if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    switch (error.code) {
-      case "P2000":
-        response = {
-          success: false,
-          error: "입력 데이터 오류: 제공된 값이 해당 컬럼 유형에 비해 너무 깁니다.",
-          ...(DEBUG_MODE && { field: error.meta?.target as string }),
-        };
-        return reply.status(400).send(response);
+    const code = error.code;
 
-      case "P2001":
-        response = {
-          success: false,
-          error: "데이터 없음 오류: 지정된 조건에 맞는 레코드가 존재하지 않습니다.",
-        };
-        return reply.status(404).send(response);
-
-      case "P2002":
-        response = {
-          success: false,
-          error: `중복된 데이터 오류: ${
-            Array.isArray(error.meta?.target)
-              ? (error.meta.target as string[]).join(", ")
-              : (error.meta?.target as string) || "알 수 없는 필드"
-          }`,
-        };
-        return reply.status(409).send(response);
-
-      case "P2003":
-        response = {
-          success: false,
-          error: "외래 키 제약조건 오류: 참조하는 레코드가 존재하지 않습니다.",
-          ...(DEBUG_MODE && { field: error.meta?.field_name as string }),
-        };
-        return reply.status(400).send(response);
-
-      case "P2025":
-        response = {
-          success: false,
-          error: "데이터 없음 오류: 요청한 데이터를 찾을 수 없습니다.",
-          ...(DEBUG_MODE && { details: error.meta }),
-        };
-        return reply.status(404).send(response);
-
-      case "P2024":
-        response = {
-          success: false,
-          error: "데이터베이스 연결 오류: 데이터베이스 서버에 연결할 수 없습니다.",
-        };
-        return reply.status(503).send(response);
-
-      default:
-        response = {
-          success: false,
-          error: `데이터베이스 오류: ${error.message}`,
-          ...(DEBUG_MODE && { code: error.code }),
-        };
-        return reply.status(400).send(response);
+    // 404 — 레코드 없음
+    if (code === "P2001" || code === "P2025") {
+      response = {
+        success: false,
+        error: code === "P2001"
+          ? "데이터 없음 오류: 지정된 조건에 맞는 레코드가 존재하지 않습니다."
+          : "데이터 없음 오류: 요청한 데이터를 찾을 수 없습니다.",
+        ...(DEBUG_MODE && code === "P2025" && { details: error.meta }),
+      };
+      return reply.status(404).send(response);
     }
+
+    // 409 — 유니크 제약조건 위반
+    if (code === "P2002") {
+      response = {
+        success: false,
+        error: `중복된 데이터 오류: ${
+          Array.isArray(error.meta?.target)
+            ? (error.meta.target as string[]).join(", ")
+            : (error.meta?.target as string) || "알 수 없는 필드"
+        }`,
+      };
+      return reply.status(409).send(response);
+    }
+
+    // 503 — DB 연결 풀 타임아웃
+    if (code === "P2024") {
+      response = {
+        success: false,
+        error: "데이터베이스 연결 오류: 데이터베이스 서버에 연결할 수 없습니다.",
+      };
+      return reply.status(503).send(response);
+    }
+
+    // 400 — 입력 데이터 오류 (P2000, P2003, 기타)
+    if (code === "P2000") {
+      response = {
+        success: false,
+        error: "입력 데이터 오류: 제공된 값이 해당 컬럼 유형에 비해 너무 깁니다.",
+        ...(DEBUG_MODE && { field: error.meta?.target as string }),
+      };
+    } else if (code === "P2003") {
+      response = {
+        success: false,
+        error: "외래 키 제약조건 오류: 참조하는 레코드가 존재하지 않습니다.",
+        ...(DEBUG_MODE && { field: error.meta?.field_name as string }),
+      };
+    } else {
+      response = {
+        success: false,
+        error: `데이터베이스 오류: ${error.message}`,
+        ...(DEBUG_MODE && { code }),
+      };
+    }
+    return reply.status(400).send(response);
   }
   // JWT 토큰 오류 처리 세분화
   else if (error instanceof TokenExpiredError) {
