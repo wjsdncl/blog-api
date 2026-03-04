@@ -13,7 +13,28 @@ const BUCKET_NAME = "images";
 
 const uploadRoutes: FastifyPluginAsync = async (fastify) => {
   // POST / - 이미지 업로드
-  fastify.post("/", { preHandler: requiredAuthenticate }, async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post("/", {
+    schema: {
+      tags: ["Upload"],
+      summary: "이미지 업로드",
+      description: "이미지를 Supabase Storage에 업로드합니다. (JPEG, PNG, GIF, WEBP, 최대 10MB)",
+      security: [{ bearerAuth: [] }],
+      consumes: ["multipart/form-data"],
+      response: {
+        200: {
+          description: "업로드 성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean", example: true },
+            url: { type: "string", format: "uri", description: "업로드된 이미지의 공개 URL" },
+          },
+        },
+        400: { $ref: "ErrorResponse" },
+        401: { $ref: "ErrorResponse" },
+      },
+    },
+    preHandler: requiredAuthenticate,
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     const file = await request.file();
     if (!file) throw new BadRequestError("파일이 첨부되지 않았습니다.");
 
@@ -26,15 +47,15 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
       throw new BadRequestError("파일 크기가 10MB를 초과합니다.");
     }
 
-    const timestamp = Date.now();
+    const uuid = crypto.randomUUID().slice(0, 8);
     const safeName = file.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const filePath = `posts/${timestamp}-${safeName}`;
+    const filePath = `posts/${uuid}-${safeName}`;
 
     const { error } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(filePath, buffer, {
         contentType: file.mimetype,
-        upsert: true,
+        upsert: false,
       });
 
     if (error) {
