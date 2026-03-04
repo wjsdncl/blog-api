@@ -157,14 +157,14 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
       assertPublicAccess(post, isOwner, "게시글");
       await incrementViewCount("post", post.id, isOwner, request.ip);
 
-      const isLiked = request.user && Array.isArray(post.postLikes) && post.postLikes.length > 0;
+      const is_liked = request.user && Array.isArray(post.postLikes) && post.postLikes.length > 0;
 
       return reply.send({
         success: true,
         data: {
           ...post,
           postLikes: undefined,
-          isLiked,
+          is_liked,
         },
       });
     },
@@ -302,7 +302,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
             data: {
               type: "object",
               properties: {
-                isLiked: { type: "boolean" },
+                is_liked: { type: "boolean" },
               },
             },
             message: { type: "string" },
@@ -321,7 +321,7 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
 
       return reply.send({
         success: true,
-        data: { isLiked: result.isLiked },
+        data: { is_liked: result.isLiked },
         message: result.message,
       });
     },
