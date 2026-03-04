@@ -1,7 +1,7 @@
 /**
  * Prisma 공통 헬퍼
  *
- * - findByIdOrThrow / findBySlugOrThrow: 존재하지 않으면 NotFoundError
+ * - findByIdOrThrow: 존재하지 않으면 NotFoundError
  * - incrementViewCount: 메모리 캐시 기반 24시간 IP 중복 방지
  * - addStatusFilter: OWNER는 전체 상태, 일반 사용자는 PUBLISHED만 조회
  */
@@ -45,29 +45,6 @@ export async function findByIdOrThrow<T>(
 
   return entity;
 }
-
-/**
- * 슬러그로 엔티티 조회, 없으면 NotFoundError 발생
- */
-export async function findBySlugOrThrow<T>(
-  model: "post" | "category" | "tag" | "portfolio",
-  slug: string,
-  select?: Record<string, unknown>
-): Promise<T> {
-  const prismaModel = prisma[model] as { findUnique: (args: unknown) => Promise<T | null> };
-
-  const entity = await prismaModel.findUnique({
-    where: { slug },
-    ...(select && { select }),
-  });
-
-  if (!entity) {
-    throw new NotFoundError(ENTITY_NAMES[model]);
-  }
-
-  return entity;
-}
-
 
 /**
  * 유니크 필드 중복 체크

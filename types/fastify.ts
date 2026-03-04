@@ -14,7 +14,6 @@ export interface User extends Partial<PrismaUser> {
   email?: string;
   name?: string;
   role?: role;
-  isOwner?: boolean;
 }
 
 declare module "fastify" {

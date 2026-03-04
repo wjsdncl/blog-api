@@ -43,18 +43,3 @@ export class ConflictError extends AppError {
     super(409, message, "CONFLICT");
   }
 }
-
-export class ValidationError extends AppError {
-  constructor(
-    message: string,
-    public details?: Record<string, string[]>
-  ) {
-    super(400, message, "VALIDATION_ERROR");
-  }
-}
-
-export class RateLimitError extends AppError {
-  constructor(message = "너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.") {
-    super(429, message, "RATE_LIMIT_EXCEEDED");
-  }
-}
