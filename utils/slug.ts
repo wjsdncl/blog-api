@@ -24,7 +24,7 @@ export function generateSlug(text: string): string {
 
 /**
  * 중복되지 않는 슬러그 생성
- * @param model - 대상 모델 (post, category, tag, portfolio)
+ * @param model - 대상 모델 (post, tag, portfolio)
  * @param text - 슬러그로 변환할 텍스트
  * @param excludeId - 제외할 ID (수정 시 자기 자신 제외)
  */

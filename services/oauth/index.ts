@@ -6,8 +6,6 @@ import { googleOAuthService } from "./google.js";
 import type { IOAuthService } from "./types.js";
 
 export * from "./types.js";
-export { githubOAuthService } from "./github.js";
-export { googleOAuthService } from "./google.js";
 
 // Provider lookup
 const services: Record<string, IOAuthService> = {

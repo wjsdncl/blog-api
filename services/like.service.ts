@@ -129,38 +129,3 @@ async function toggleCommentLike(commentId: string, userId: string): Promise<Tog
     message: "좋아요를 눌렀습니다.",
   };
 }
-
-/**
- * 사용자가 좋아요한 ID 목록 조회
- */
-export async function getUserLikedIds(
-  target: LikeTarget,
-  targetIds: string[],
-  userId: string | undefined
-): Promise<Set<string>> {
-  if (!userId || targetIds.length === 0) {
-    return new Set();
-  }
-
-  if (target === "post") {
-    const likes = await prisma.postLike.findMany({
-      where: {
-        user_id: userId,
-        post_id: { in: targetIds },
-      },
-      select: { post_id: true },
-    });
-
-    return new Set(likes.map((like) => like.post_id));
-  } else {
-    const likes = await prisma.commentLike.findMany({
-      where: {
-        user_id: userId,
-        comment_id: { in: targetIds },
-      },
-      select: { comment_id: true },
-    });
-
-    return new Set(likes.map((like) => like.comment_id));
-  }
-}

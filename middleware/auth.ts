@@ -11,7 +11,7 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { verifyAccessToken, verifyRefreshToken, generateTokens } from "@/utils/auth.js";
 import { prisma } from "@/lib/prismaClient.js";
 import { logger } from "@/utils/logger.js";
-import { AuthenticatedRequest, User } from "@/types/fastify.js";
+import { User } from "@/types/fastify.js";
 
 async function handleAuthentication(
   request: FastifyRequest,
