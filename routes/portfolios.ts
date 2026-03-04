@@ -6,7 +6,7 @@ import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "@/lib/prismaClient.js";
 import { optionalAuthenticate, requireOwner } from "@/middleware/auth.js";
-import { NotFoundError, BadRequestError } from "@/lib/errors.js";
+import { NotFoundError } from "@/lib/errors.js";
 import { generateUniqueSlug } from "@/utils/slug.js";
 import { portfolioIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
 import {
@@ -15,6 +15,7 @@ import {
   assertPublicAccess,
   incrementViewCount,
   calculatePublishedAt,
+  validateCategoryId,
 } from "@/utils/prismaHelpers.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
@@ -261,15 +262,7 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
       // 슬러그 자동 생성
       const slug = await generateUniqueSlug("portfolio", input.title);
 
-      // 카테고리 존재 확인
-      if (input.category_id) {
-        const category = await prisma.category.findUnique({
-          where: { id: input.category_id },
-        });
-        if (!category) {
-          throw new BadRequestError("존재하지 않는 카테고리입니다.");
-        }
-      }
+      await validateCategoryId(input.category_id);
 
       // 발행 상태에 따른 published_at 설정
       const publishedAt = calculatePublishedAt(input.status, input.published_at);
@@ -360,15 +353,7 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
         newSlug = await generateUniqueSlug("portfolio", input.title, id);
       }
 
-      // 카테고리 존재 확인
-      if (input.category_id) {
-        const category = await prisma.category.findUnique({
-          where: { id: input.category_id },
-        });
-        if (!category) {
-          throw new BadRequestError("존재하지 않는 카테고리입니다.");
-        }
-      }
+      await validateCategoryId(input.category_id);
 
       // 발행 상태 변경 시 published_at 설정
       const publishedAt = calculatePublishedAt(input.status, input.published_at, portfolio.status);

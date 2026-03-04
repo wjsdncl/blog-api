@@ -5,9 +5,9 @@
  * 게시글 상태(DRAFT/PUBLISHED/SCHEDULED) 변경 시 카테고리의 post_count를 자동 동기화.
  */
 import { prisma } from "@/lib/prismaClient.js";
-import { NotFoundError, BadRequestError } from "@/lib/errors.js";
+import { NotFoundError } from "@/lib/errors.js";
 import { generateUniqueSlug } from "@/utils/slug.js";
-import { calculatePublishedAt } from "@/utils/prismaHelpers.js";
+import { calculatePublishedAt, validateCategoryId } from "@/utils/prismaHelpers.js";
 
 export interface CreatePostInput {
   title: string;
@@ -72,14 +72,7 @@ export const postDetailSelect = {
 export async function createPost(input: CreatePostInput) {
   const slug = await generateUniqueSlug("post", input.title);
 
-  if (input.category_id) {
-    const category = await prisma.category.findUnique({
-      where: { id: input.category_id },
-    });
-    if (!category) {
-      throw new BadRequestError("존재하지 않는 카테고리입니다.");
-    }
-  }
+  await validateCategoryId(input.category_id);
 
   let publishedAt = input.published_at;
   if (input.status === "PUBLISHED" && !publishedAt) {
@@ -144,14 +137,7 @@ export async function updatePost(id: string, input: UpdatePostInput) {
     newSlug = await generateUniqueSlug("post", input.title, id);
   }
 
-  if (input.category_id) {
-    const category = await prisma.category.findUnique({
-      where: { id: input.category_id },
-    });
-    if (!category) {
-      throw new BadRequestError("존재하지 않는 카테고리입니다.");
-    }
-  }
+  await validateCategoryId(input.category_id);
 
   const publishedAt = calculatePublishedAt(input.status, input.published_at, post.status);
 

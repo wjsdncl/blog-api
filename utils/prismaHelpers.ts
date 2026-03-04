@@ -6,7 +6,7 @@
  * - addStatusFilter: OWNER는 전체 상태, 일반 사용자는 PUBLISHED만 조회
  */
 import { prisma } from "@/lib/prismaClient.js";
-import { NotFoundError, ConflictError } from "@/lib/errors.js";
+import { NotFoundError, ConflictError, BadRequestError } from "@/lib/errors.js";
 
 
 type PrismaModel = "post" | "comment" | "category" | "tag" | "portfolio" | "techStack" | "user" | "postLike" | "commentLike";
@@ -208,6 +208,21 @@ export function buildStatusFilter(
     };
   }
   return {};
+}
+
+
+/**
+ * 카테고리 ID 존재 검증
+ */
+export async function validateCategoryId(categoryId: string | null | undefined): Promise<void> {
+  if (!categoryId) return;
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    select: { id: true },
+  });
+  if (!category) {
+    throw new BadRequestError("존재하지 않는 카테고리입니다.");
+  }
 }
 
 
