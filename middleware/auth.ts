@@ -55,9 +55,11 @@ async function handleAuthentication(
 
       if (dbUser) {
         request.user = {
-          ...decoded,
-          ...dbUser,
-          userId: decoded.userId, // ensure JWT userId field kept
+          userId: decoded.userId,
+          id: dbUser.id,
+          role: dbUser.role,
+          email: dbUser.email,
+          username: dbUser.username,
         } as User;
       } else {
         request.user = decoded as User;

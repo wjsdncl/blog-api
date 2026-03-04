@@ -122,12 +122,17 @@ const VIEW_WINDOW_MS = 24 * 60 * 60 * 1000;
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 const viewCache = new Map<string, number>();
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, expiresAt] of viewCache) {
-    if (expiresAt <= now) viewCache.delete(key);
-  }
-}, CLEANUP_INTERVAL_MS);
+let cleanupStarted = false;
+function ensureCleanupInterval(): void {
+  if (cleanupStarted) return;
+  cleanupStarted = true;
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, expiresAt] of viewCache) {
+      if (expiresAt <= now) viewCache.delete(key);
+    }
+  }, CLEANUP_INTERVAL_MS);
+}
 
 /**
  * 조회수 증가 (OWNER 제외, 같은 IP는 24시간 내 중복 무시)
@@ -139,6 +144,7 @@ export async function incrementViewCount(
   ip?: string
 ): Promise<void> {
   if (isOwner) return;
+  ensureCleanupInterval();
 
   const cacheKey = `${model}:${entityId}:${ip ?? "unknown"}`;
   const now = Date.now();
