@@ -62,7 +62,7 @@ const schemas = {
       id: { type: "string", format: "uuid" },
       username: { type: "string", example: "johndoe" },
       email: { type: "string", format: "email" },
-      role: { type: "string", enum: ["OWNER", "MEMBER"] },
+      role: { type: "string", enum: ["OWNER", "USER"] },
       is_active: { type: "boolean" },
       created_at: { type: "string", format: "date-time" },
     },
@@ -114,7 +114,7 @@ const schemas = {
     properties: {
       id: { type: "string", format: "uuid" },
       username: { type: "string" },
-      role: { type: "string", enum: ["OWNER", "MEMBER"] },
+      role: { type: "string", enum: ["OWNER", "USER"] },
     },
   },
   Comment: {

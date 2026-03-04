@@ -296,7 +296,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               properties: {
                 authenticated: { type: "boolean" },
                 userId: { type: "string", format: "uuid" },
-                role: { type: "string", enum: ["OWNER", "MEMBER"] },
+                role: { type: "string", enum: ["OWNER", "USER"] },
               },
             },
           },
