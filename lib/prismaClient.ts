@@ -1,3 +1,9 @@
+/**
+ * Prisma 싱글톤 클라이언트
+ *
+ * Prisma 7부터 pg Pool + PrismaPg 어댑터가 필수.
+ * 개발 환경에서는 모든 쿼리 로그 출력.
+ */
 import { PrismaClient } from "./generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
@@ -7,15 +13,11 @@ class PrismaClientSingleton {
 
   static getInstance(): PrismaClient {
     if (!PrismaClientSingleton.instance) {
-      // Create PostgreSQL connection pool for Prisma 7 adapter
       const pool = new pg.Pool({
         connectionString: process.env.DATABASE_URL,
       });
-
-      // Create Prisma adapter (required in Prisma 7)
       const adapter = new PrismaPg(pool);
 
-      // Initialize Prisma Client with adapter
       PrismaClientSingleton.instance = new PrismaClient({
         adapter,
         log: process.env.NODE_ENV === "development" ? ["query", "error", "info", "warn"] : ["error"],

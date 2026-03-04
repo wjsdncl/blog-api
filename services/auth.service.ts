@@ -1,6 +1,8 @@
 /**
- * Auth Service
- * 사용자 인증 관련 비즈니스 로직
+ * 인증 서비스
+ *
+ * OAuth 사용자 생성/조회, HttpOnly 쿠키 관리, 세션 확인을 담당.
+ * 토큰 자체의 생성/검증은 utils/auth.ts에서 처리.
  */
 import { FastifyReply } from "fastify";
 import { prisma } from "@/lib/prismaClient.js";
@@ -19,12 +21,13 @@ export class InactiveUserError extends ForbiddenError {
 }
 
 /**
- * 사용자 조회 또는 생성
+ * 이메일로 사용자 조회 후 없으면 생성
+ * - 기존 사용자가 다른 OAuth 제공자로 로그인 시 Auth 정보 업데이트
+ * - 비활성화된 사용자는 InactiveUserError 발생
  */
 export async function findOrCreateUser(userInfo: OAuthUserInfo) {
   const { provider, providerId, email, username } = userInfo;
 
-  // 1. 이메일로 기존 사용자 조회
   let user = await prisma.user.findUnique({
     where: { email },
     include: { auth: true },

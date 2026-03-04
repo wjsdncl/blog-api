@@ -39,10 +39,6 @@ export interface IOAuthService {
   fetchUserInfo(accessToken: string): Promise<OAuthUserInfo>;
 }
 
-// ============================================
-// GitHub 타입
-// ============================================
-
 export interface GitHubTokenResponse {
   access_token: string;
   token_type: string;
@@ -63,10 +59,6 @@ export interface GitHubEmailResponse {
   primary: boolean;
   verified: boolean;
 }
-
-// ============================================
-// Google 타입
-// ============================================
 
 export interface GoogleTokenResponse {
   access_token: string;

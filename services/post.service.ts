@@ -1,15 +1,13 @@
 /**
- * Post Service
- * 게시글 관련 비즈니스 로직
+ * 게시글 서비스
+ *
+ * 모든 CUD 작업은 트랜잭션으로 처리.
+ * 게시글 상태(DRAFT/PUBLISHED/SCHEDULED) 변경 시 카테고리의 post_count를 자동 동기화.
  */
 import { prisma } from "@/lib/prismaClient.js";
 import { NotFoundError, BadRequestError } from "@/lib/errors.js";
 import { generateUniqueSlug } from "@/utils/slug.js";
 import { calculatePublishedAt } from "@/utils/prismaHelpers.js";
-
-// ============================================
-// Types
-// ============================================
 
 export interface CreatePostInput {
   title: string;
@@ -33,7 +31,6 @@ export interface UpdatePostInput {
   published_at?: Date;
 }
 
-// Select Objects
 const postListSelect = {
   id: true,
   title: true,
@@ -67,20 +64,14 @@ export const postDetailSelect = {
   updated_at: true,
 } as const;
 
-// ============================================
-// Service Functions
-// ============================================
-
 /**
  * 게시글 생성
  * - 슬러그 자동 생성
  * - PUBLISHED 상태 시 카테고리 post_count 증가
  */
 export async function createPost(input: CreatePostInput) {
-  // 슬러그 자동 생성
   const slug = await generateUniqueSlug("post", input.title);
 
-  // 카테고리 존재 확인
   if (input.category_id) {
     const category = await prisma.category.findUnique({
       where: { id: input.category_id },
@@ -90,7 +81,6 @@ export async function createPost(input: CreatePostInput) {
     }
   }
 
-  // 발행 상태에 따른 published_at 설정
   let publishedAt = input.published_at;
   if (input.status === "PUBLISHED" && !publishedAt) {
     publishedAt = new Date();
@@ -118,7 +108,6 @@ export async function createPost(input: CreatePostInput) {
       select: postDetailSelect,
     });
 
-    // PUBLISHED 상태일 때만 카테고리 카운트 증가
     if (shouldIncrementCount && input.category_id) {
       await tx.category.update({
         where: { id: input.category_id },
@@ -136,7 +125,6 @@ export async function createPost(input: CreatePostInput) {
  * - 상태/카테고리 변경 시 post_count 동기화
  */
 export async function updatePost(id: string, input: UpdatePostInput) {
-  // 기존 게시글 정보
   const post = await prisma.post.findUnique({
     where: { id },
     select: {
@@ -151,13 +139,11 @@ export async function updatePost(id: string, input: UpdatePostInput) {
     throw new NotFoundError("게시글");
   }
 
-  // 제목 변경 시 슬러그 재생성
   let newSlug: string | undefined;
   if (input.title && input.title !== post.title) {
     newSlug = await generateUniqueSlug("post", input.title, id);
   }
 
-  // 카테고리 존재 확인
   if (input.category_id) {
     const category = await prisma.category.findUnique({
       where: { id: input.category_id },
@@ -167,7 +153,6 @@ export async function updatePost(id: string, input: UpdatePostInput) {
     }
   }
 
-  // 발행 상태 변경 시 published_at 설정
   const publishedAt = calculatePublishedAt(input.status, input.published_at, post.status);
 
   // post_count 동기화를 위한 상태 계산
@@ -246,10 +231,6 @@ export async function deletePost(id: string) {
   });
 }
 
-// ============================================
-// Helper Functions
-// ============================================
-
 interface SyncCategoryCountParams {
   wasPublished: boolean;
   willBePublished: boolean;
@@ -259,7 +240,12 @@ interface SyncCategoryCountParams {
 }
 
 /**
- * 카테고리 post_count 동기화
+ * 카테고리별 게시글 수 동기화
+ *
+ * 3가지 케이스:
+ * - PUBLISHED → DRAFT: 기존 카테고리 -1
+ * - DRAFT → PUBLISHED: 새 카테고리 +1
+ * - PUBLISHED 유지 + 카테고리 변경: 이전 -1, 새 +1
  */
 async function syncCategoryPostCount(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
@@ -268,7 +254,6 @@ async function syncCategoryPostCount(
   const { wasPublished, willBePublished, categoryChanged, oldCategoryId, newCategoryId } = params;
 
   if (wasPublished && !willBePublished) {
-    // PUBLISHED → DRAFT: 기존 카테고리 -1
     if (oldCategoryId) {
       await tx.category.update({
         where: { id: oldCategoryId },
@@ -276,7 +261,6 @@ async function syncCategoryPostCount(
       });
     }
   } else if (!wasPublished && willBePublished) {
-    // DRAFT → PUBLISHED: 새 카테고리 +1
     if (newCategoryId) {
       await tx.category.update({
         where: { id: newCategoryId },
@@ -284,7 +268,6 @@ async function syncCategoryPostCount(
       });
     }
   } else if (wasPublished && willBePublished && categoryChanged) {
-    // PUBLISHED 유지 + 카테고리 변경: 이전 -1, 새 +1
     if (oldCategoryId) {
       await tx.category.update({
         where: { id: oldCategoryId },

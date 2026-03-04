@@ -4,10 +4,6 @@
  */
 import { z } from "zod";
 
-// ============================================
-// ID Parameter Schemas
-// ============================================
-
 /**
  * UUID ID 파라미터 스키마 생성
  */
@@ -26,17 +22,9 @@ export const portfolioIdParamsSchema = createIdParamsSchema("포트폴리오");
 export const techStackIdParamsSchema = createIdParamsSchema("기술 스택");
 export const userIdParamsSchema = createIdParamsSchema("사용자");
 
-// ============================================
-// Slug Parameter Schema
-// ============================================
-
 export const slugParamsSchema = z.object({
   slug: z.string().min(1, "슬러그는 필수입니다."),
 });
-
-// ============================================
-// Pagination Schemas
-// ============================================
 
 /**
  * 페이지네이션 기본 스키마
@@ -56,10 +44,6 @@ export function createPaginationSchema(options: { maxLimit?: number; defaultLimi
     limit: z.coerce.number().int().min(1).max(maxLimit).default(defaultLimit),
   });
 }
-
-// ============================================
-// Common Field Schemas
-// ============================================
 
 /**
  * 상태 필터 스키마

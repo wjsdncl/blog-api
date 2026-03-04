@@ -10,20 +10,12 @@ import { techStackIdParamsSchema } from "@/utils/schemas.js";
 import { findByIdOrThrow, checkUniqueName } from "@/utils/prismaHelpers.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
-// ============================================
-// Schemas
-// ============================================
-
 const createTechStackSchema = z.object({
   name: z.string().min(1, "기술명은 필수입니다.").max(50, "기술명은 50자 이하여야 합니다."),
   category: z.string().max(50, "카테고리는 50자 이하여야 합니다.").optional(),
 });
 
 const updateTechStackSchema = createTechStackSchema.partial();
-
-// ============================================
-// Select Objects
-// ============================================
 
 const techStackSelect = {
   id: true,
@@ -40,10 +32,6 @@ const techStackWithCountSelect = {
     },
   },
 } as const;
-
-// ============================================
-// Routes
-// ============================================
 
 const techStacksRoutes: FastifyPluginAsync = async (fastify) => {
   /**

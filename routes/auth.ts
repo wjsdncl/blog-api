@@ -1,8 +1,9 @@
 /**
- * Auth Routes - OAuth 2.0 (BFF Pattern)
+ * 인증 라우트 — OAuth 2.0 (BFF Pattern)
  *
- * GitHub, Google OAuth를 지원하며 JWT를 HttpOnly 쿠키로 발급합니다.
- * 토큰은 브라우저에 노출되지 않고 백엔드에서만 관리됩니다.
+ * 흐름: /oauth → 제공자 리다이렉트 → /oauth/callback → JWT 쿠키 발급 → 프론트 리다이렉트
+ * CSRF 방지: oauth_state 쿠키에 랜덤 state 저장 후 콜백에서 검증
+ * 토큰은 HttpOnly 쿠키로만 관리, 브라우저 JS에 노출되지 않음
  */
 import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
@@ -23,9 +24,6 @@ import {
 } from "@/services/auth.service.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
-// ============================================
-// Types & Schemas
-// ============================================
 
 interface OAuthState {
   state: string;
@@ -41,9 +39,6 @@ const oauthCallbackSchema = z.object({
   state: z.string(),
 });
 
-// ============================================
-// Helper Functions
-// ============================================
 
 function setOAuthStateCookie(reply: FastifyReply, oauthState: OAuthState): void {
   reply.setCookie("oauth_state", JSON.stringify(oauthState), {
@@ -68,15 +63,8 @@ function clearOAuthStateCookie(reply: FastifyReply): void {
   reply.clearCookie("oauth_state", { path: "/" });
 }
 
-// ============================================
-// Routes
-// ============================================
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
-  // ============================================
-  // OAuth 통합 엔드포인트
-  // ============================================
-
   /**
    * GET /auth/oauth?type=github|google
    * OAuth 로그인 시작 - 제공자 인증 페이지로 리다이렉트
@@ -166,21 +154,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // 1. Access Token 교환
         const accessToken = await service.exchangeCode(code);
-
-        // 2. 사용자 정보 조회
         const userInfo = await service.fetchUserInfo(accessToken);
-
-        // 3. 사용자 조회/생성 및 JWT 발급
         const user = await findOrCreateUser(userInfo);
         const tokens = generateTokens(user.id, user.email);
         setAuthCookies(reply, tokens.accessToken, tokens.refreshToken);
 
-        // 4. 프론트엔드로 리다이렉트
         return reply.redirect(`${config.frontendUrl}/auth/callback?provider=${saved.provider}`);
       } catch (error) {
-        // 비활성화된 사용자
         if (error instanceof InactiveUserError) {
           logger.warn("Inactive user login blocked", { provider: saved.provider });
           return reply.redirect(`${config.frontendUrl}/auth/error?message=account_inactive`);
@@ -194,10 +175,6 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
     },
   });
-
-  // ============================================
-  // 공통 인증 엔드포인트
-  // ============================================
 
   /**
    * POST /auth/refresh
@@ -238,8 +215,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const decoded = verifyRefreshToken(refreshToken);
 
-        // 사용자 존재 및 활성화 확인
-        const user = await prisma.user.findUnique({
+          const user = await prisma.user.findUnique({
           where: { id: decoded.userId },
           select: { id: true, email: true, is_active: true },
         });
@@ -249,13 +225,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           throw new UnauthorizedError("사용자를 찾을 수 없습니다.");
         }
 
-        // 비활성화된 사용자
         if (!user.is_active) {
           clearAuthCookies(reply);
           throw new UnauthorizedError("비활성화된 계정입니다.");
         }
 
-        // 새 토큰 발급
         const tokens = generateTokens(user.id, user.email);
         setAuthCookies(reply, tokens.accessToken, tokens.refreshToken);
 

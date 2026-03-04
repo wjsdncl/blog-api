@@ -12,19 +12,11 @@ import { tagIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
 import { findByIdOrThrow, checkUniqueName } from "@/utils/prismaHelpers.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
-// ============================================
-// Schemas
-// ============================================
-
 const createTagSchema = z.object({
   name: z.string().min(1, "태그명은 필수입니다.").max(30, "태그명은 30자 이하여야 합니다."),
 });
 
 const updateTagSchema = createTagSchema.partial();
-
-// ============================================
-// Select Objects
-// ============================================
 
 const tagSelect = {
   id: true,
@@ -32,10 +24,6 @@ const tagSelect = {
   slug: true,
   created_at: true,
 } as const;
-
-// ============================================
-// Routes
-// ============================================
 
 const tagsRoutes: FastifyPluginAsync = async (fastify) => {
   /**

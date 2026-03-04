@@ -1,13 +1,13 @@
 /**
- * Prisma Helper Utilities
- * Prisma 공통 헬퍼 함수
+ * Prisma 공통 헬퍼
+ *
+ * - findByIdOrThrow / findBySlugOrThrow: 존재하지 않으면 NotFoundError
+ * - incrementViewCount: 메모리 캐시 기반 24시간 IP 중복 방지
+ * - addStatusFilter: OWNER는 전체 상태, 일반 사용자는 PUBLISHED만 조회
  */
 import { prisma } from "@/lib/prismaClient.js";
 import { NotFoundError, ConflictError } from "@/lib/errors.js";
 
-// ============================================
-// Types
-// ============================================
 
 type PrismaModel = "post" | "comment" | "category" | "tag" | "portfolio" | "techStack" | "user" | "postLike" | "commentLike";
 
@@ -23,9 +23,6 @@ const ENTITY_NAMES: Record<PrismaModel, string> = {
   commentLike: "댓글 좋아요",
 };
 
-// ============================================
-// Find Helpers
-// ============================================
 
 /**
  * ID로 엔티티 조회, 없으면 NotFoundError 발생
@@ -71,9 +68,6 @@ export async function findBySlugOrThrow<T>(
   return entity;
 }
 
-// ============================================
-// Unique Field Check Helpers
-// ============================================
 
 /**
  * 유니크 필드 중복 체크
@@ -120,13 +114,13 @@ export async function checkUniqueName(
   await checkUniqueField(model, "name", name, excludeId, messages[model]);
 }
 
-// ============================================
-// View Count Helper
-// ============================================
 
-const VIEW_WINDOW_MS = 24 * 60 * 60 * 1000; // 24시간
-const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1시간마다 정리
-const viewCache = new Map<string, number>(); // "model:entityId:ip" → 만료 timestamp
+// 조회수 중복 방지용 인메모리 캐시
+// key: "model:entityId:ip", value: 만료 timestamp
+// 서버 재시작 시 초기화되지만 조회수 정확도보다 성능을 우선
+const VIEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+const viewCache = new Map<string, number>();
 
 setInterval(() => {
   const now = Date.now();
@@ -161,9 +155,6 @@ export async function incrementViewCount(
   });
 }
 
-// ============================================
-// Access Control Helpers
-// ============================================
 
 /**
  * 공개 콘텐츠 접근 권한 체크
@@ -174,7 +165,6 @@ export function assertPublicAccess(
   isOwner: boolean,
   entityName: string = "콘텐츠"
 ): void {
-  // 비공개 콘텐츠 체크
   if (entity.status !== "PUBLISHED" && !isOwner) {
     throw new NotFoundError(entityName);
   }
@@ -190,9 +180,6 @@ export function assertPublicAccess(
   }
 }
 
-// ============================================
-// Status Filter Helpers
-// ============================================
 
 /**
  * 상태 필터 조건 추가
@@ -214,9 +201,6 @@ export function addStatusFilter(
   }
 }
 
-// ============================================
-// Publish Date Helper
-// ============================================
 
 /**
  * 발행일 계산

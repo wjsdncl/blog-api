@@ -1,3 +1,9 @@
+/**
+ * 글로벌 에러 핸들러
+ *
+ * 처리 우선순위: Zod → Prisma → JWT → AppError → Fastify → 기타(500)
+ * DEBUG_MODE(개발): stack trace, error details 포함
+ */
 import { FastifyRequest, FastifyReply, FastifyError } from "fastify";
 import jwt from "jsonwebtoken";
 import { Prisma } from "@/lib/generated/prisma/client.js";
@@ -7,7 +13,6 @@ import { logger } from "@/utils/logger.js";
 
 const { JsonWebTokenError, TokenExpiredError, NotBeforeError } = jwt;
 
-// 디버그 모드 설정 (개발 환경에서만 상세 오류 표시)
 const DEBUG_MODE = process.env.NODE_ENV !== "production";
 
 // 에러 응답 타입

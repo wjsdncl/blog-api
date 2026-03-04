@@ -13,10 +13,6 @@ import { toggleLike } from "@/services/like.service.js";
 import { createPost, updatePost, deletePost, postDetailSelect } from "@/services/post.service.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
-// ============================================
-// Schemas
-// ============================================
-
 const postListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
@@ -39,10 +35,6 @@ const createPostSchema = z.object({
 });
 
 const updatePostSchema = createPostSchema.partial();
-
-// ============================================
-// Select Objects (목록용)
-// ============================================
 
 const postListSelect = {
   id: true,
@@ -70,10 +62,6 @@ const postListSelect = {
     },
   },
 } as const;
-
-// ============================================
-// Routes
-// ============================================
 
 const postsRoutes: FastifyPluginAsync = async (fastify) => {
   /**

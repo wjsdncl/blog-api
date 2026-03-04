@@ -11,9 +11,6 @@ import { userIdParamsSchema } from "@/utils/schemas.js";
 import { findByIdOrThrow, checkUniqueField } from "@/utils/prismaHelpers.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
-// ============================================
-// Schemas
-// ============================================
 
 const updateProfileSchema = z.object({
   username: z
@@ -32,9 +29,6 @@ const userListQuerySchema = z.object({
   is_active: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
 });
 
-// ============================================
-// Select Objects
-// ============================================
 
 // 공개 프로필 (다른 사용자가 볼 수 있는 정보)
 const publicProfileSelect = {
@@ -61,9 +55,6 @@ const adminUserListSelect = {
   updated_at: true,
 } as const;
 
-// ============================================
-// Routes
-// ============================================
 
 const usersRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -96,7 +87,6 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
       const { page, limit, search, role, is_active } = userListQuerySchema.parse(request.query);
       const skip = (page - 1) * limit;
 
-      // 검색 조건
       const where = {
         ...(search && {
           OR: [

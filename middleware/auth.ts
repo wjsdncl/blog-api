@@ -1,10 +1,18 @@
+/**
+ * 인증 미들웨어 (Fastify preHandler)
+ *
+ * 인증 흐름:
+ * 1. Authorization 헤더에서 Access Token 추출
+ * 2. 토큰 유효 → DB에서 최신 사용자 정보 조회 후 request.user에 할당
+ * 3. 토큰 만료 + Refresh Token 존재 → 새 토큰 쌍 발급 (응답 헤더에 포함)
+ * 4. 토큰 무효 → isRequired에 따라 401 반환 또는 user=null로 통과
+ */
 import { FastifyRequest, FastifyReply, HookHandlerDoneFunction } from "fastify";
 import { verifyAccessToken, verifyRefreshToken, generateTokens } from "@/utils/auth.js";
 import { prisma } from "@/lib/prismaClient.js";
 import { logger } from "@/utils/logger.js";
 import { AuthenticatedRequest, User } from "@/types/fastify.js";
 
-// 공통 인증 처리 함수
 async function handleAuthentication(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -103,23 +111,21 @@ async function handleAuthentication(
   }
 }
 
-// 필수 인증 훅
+/** 인증 필수 — 미인증 시 401 */
 export async function requiredAuthenticate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   await handleAuthentication(request, reply, true);
 }
 
-// 선택적 인증 훅
+/** 인증 선택 — 미인증이어도 통과 (user=null) */
 export async function optionalAuthenticate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   await handleAuthentication(request, reply, false);
 }
 
-// 관리자 권한 확인 훅
+/** OWNER 전용 — 인증 확인 후 role=OWNER가 아니면 403 */
 export async function requireOwner(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-  // 먼저 인증 확인
   await requiredAuthenticate(request, reply);
   if (reply.sent) return;
 
-  // OWNER 역할 확인
   if (request.user?.role !== "OWNER") {
     logger.warn("Owner access attempt by non-owner user", {
       userId: request.user?.userId,

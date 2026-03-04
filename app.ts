@@ -1,3 +1,9 @@
+/**
+ * Fastify 서버 엔트리포인트
+ *
+ * 플러그인 등록 순서: Swagger → Helmet → CORS → Cookie → Multipart → RateLimit
+ * 라우트 인증 레벨: optionalAuthenticate(공개) / requiredAuthenticate(로그인) / requireOwner(관리자)
+ */
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
@@ -10,7 +16,6 @@ import { logger } from "@/utils/logger.js";
 import { errorHandler } from "@/middleware/errorHandler.js";
 import { setupSwagger } from "@/config/swagger.js";
 
-// Routes
 import authRoutes from "@/routes/auth.js";
 import usersRoutes from "@/routes/users.js";
 import postsRoutes from "@/routes/posts.js";
@@ -28,12 +33,9 @@ const app: FastifyInstance = Fastify({
   requestIdLogLabel: "requestId",
 });
 
-// 플러그인 등록
 async function buildApp(): Promise<FastifyInstance> {
-  // Swagger (config.swagger.enabled로 제어, 프로덕션에서는 Basic Auth 적용)
   await setupSwagger(app);
 
-  // Helmet (보안)
   await app.register(helmet, {
     crossOriginEmbedderPolicy: false,
     contentSecurityPolicy: {
@@ -46,19 +48,14 @@ async function buildApp(): Promise<FastifyInstance> {
     },
   });
 
-  // CORS
   await app.register(cors, {
     origin: config.corsOrigins,
     credentials: true,
   });
 
-  // Cookie
   await app.register(cookie);
-
-  // Multipart (파일 업로드)
   await app.register(multipart);
 
-  // Rate Limiting (전역)
   await app.register(rateLimit, {
     max: 100,
     timeWindow: "15 minutes",
@@ -70,7 +67,6 @@ async function buildApp(): Promise<FastifyInstance> {
     },
   });
 
-  // 요청 로깅 훅
   app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     request.startTime = Date.now();
   });
@@ -87,7 +83,6 @@ async function buildApp(): Promise<FastifyInstance> {
     });
   });
 
-  // 라우트 등록
   await app.register(authRoutes, { prefix: "/auth" });
   await app.register(usersRoutes, { prefix: "/users" });
   await app.register(postsRoutes, { prefix: "/posts" });
@@ -98,10 +93,8 @@ async function buildApp(): Promise<FastifyInstance> {
   await app.register(techStacksRoutes, { prefix: "/tech-stacks" });
   await app.register(uploadRoutes, { prefix: "/upload" });
 
-  // Error Handler
   app.setErrorHandler(errorHandler);
 
-  // Health Check
   app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
     return reply.send({
       success: true,
@@ -111,7 +104,6 @@ async function buildApp(): Promise<FastifyInstance> {
     });
   });
 
-  // 404 핸들러
   app.setNotFoundHandler(async (request: FastifyRequest, reply: FastifyReply) => {
     logger.warn("404 Not Found", { url: request.url, method: request.method, ip: request.ip });
     return reply.status(404).send({
@@ -123,7 +115,6 @@ async function buildApp(): Promise<FastifyInstance> {
   return app;
 }
 
-// 서버 시작
 async function start(): Promise<void> {
   try {
     await buildApp();
@@ -154,7 +145,6 @@ process.on("SIGINT", async () => {
   process.exit(0);
 });
 
-// 서버 시작 (최상위 레벨 await)
 start();
 
 export default app;

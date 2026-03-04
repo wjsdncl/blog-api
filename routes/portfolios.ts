@@ -18,10 +18,6 @@ import {
 } from "@/utils/prismaHelpers.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
-// ============================================
-// Schemas
-// ============================================
-
 const portfolioListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
@@ -55,10 +51,6 @@ const createPortfolioSchema = z.object({
 });
 
 const updatePortfolioSchema = createPortfolioSchema.partial();
-
-// ============================================
-// Select Objects
-// ============================================
 
 const portfolioListSelect = {
   id: true,
@@ -110,10 +102,6 @@ const portfolioDetailSelect = {
     orderBy: { order: "asc" as const },
   },
 } as const;
-
-// ============================================
-// Routes
-// ============================================
 
 const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
   /**

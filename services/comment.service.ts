@@ -1,13 +1,12 @@
 /**
- * Comment Service
- * 댓글 관련 비즈니스 로직
+ * 댓글 서비스
+ *
+ * - 답글은 1단계까지만 허용 (대댓글의 대댓글 불가)
+ * - 삭제는 soft delete (deleted_at 필드)
+ * - 부모 댓글 삭제 시 하위 답글도 함께 soft delete + comment_count 차감
  */
 import { prisma } from "@/lib/prismaClient.js";
 import { NotFoundError, ForbiddenError, BadRequestError } from "@/lib/errors.js";
-
-// ============================================
-// Types
-// ============================================
 
 export interface CreateCommentInput {
   post_id: string;
@@ -31,10 +30,6 @@ export interface CreateCommentResult {
   is_liked: boolean;
 }
 
-// ============================================
-// Select Objects
-// ============================================
-
 const authorSelect = {
   id: true,
   username: true,
@@ -53,10 +48,6 @@ export const commentSelect = {
   },
 } as const;
 
-// ============================================
-// Service Functions
-// ============================================
-
 /**
  * 댓글 생성
  * - 게시글 존재 및 공개 상태 확인
@@ -68,7 +59,6 @@ export async function createComment(
   userId: string,
   isOwner: boolean
 ): Promise<CreateCommentResult> {
-  // 게시글 존재 및 공개 상태 확인
   const post = await prisma.post.findUnique({
     where: { id: input.post_id },
     select: { id: true, status: true },
@@ -82,7 +72,6 @@ export async function createComment(
     throw new NotFoundError("게시글");
   }
 
-  // 답글인 경우 부모 댓글 확인
   if (input.parent_id) {
     const parentComment = await prisma.comment.findUnique({
       where: { id: input.parent_id, deleted_at: null },
@@ -103,7 +92,6 @@ export async function createComment(
     }
   }
 
-  // 트랜잭션으로 댓글 생성 + comment_count 증가
   const [comment] = await prisma.$transaction([
     prisma.comment.create({
       data: {
@@ -158,7 +146,6 @@ export async function deleteComment(id: string, userId: string, isOwner: boolean
     throw new NotFoundError("댓글");
   }
 
-  // 작성자 또는 OWNER만 삭제 가능
   if (comment.author_id !== userId && !isOwner) {
     throw new ForbiddenError("댓글을 삭제할 권한이 없습니다.");
   }
@@ -167,7 +154,6 @@ export async function deleteComment(id: string, userId: string, isOwner: boolean
   const deleteCount = 1 + comment._count.replies;
   const now = new Date();
 
-  // 트랜잭션으로 soft delete + comment_count 감소
   await prisma.$transaction([
     prisma.comment.update({
       where: { id },
@@ -198,7 +184,6 @@ export async function updateComment(id: string, content: string, userId: string)
     throw new NotFoundError("댓글");
   }
 
-  // 작성자만 수정 가능
   if (comment.author_id !== userId) {
     throw new ForbiddenError("본인이 작성한 댓글만 수정할 수 있습니다.");
   }

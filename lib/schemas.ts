@@ -5,10 +5,6 @@
  */
 import { z } from "zod";
 
-// ============================================
-// 공통 스키마
-// ============================================
-
 export const uuidSchema = z.string().uuid("유효하지 않은 ID 형식입니다.");
 
 export const slugSchema = z
@@ -23,10 +19,6 @@ export const paginationSchema = z.object({
 });
 
 export type Pagination = z.infer<typeof paginationSchema>;
-
-// ============================================
-// 인증 스키마
-// ============================================
 
 export const registerSchema = z.object({
   email: z.string().email("유효한 이메일을 입력해주세요."),
@@ -45,10 +37,6 @@ export const loginSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 
-// ============================================
-// 사용자 스키마
-// ============================================
-
 export const updateUserSchema = z.object({
   username: z
     .string()
@@ -59,10 +47,6 @@ export const updateUserSchema = z.object({
 });
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
-
-// ============================================
-// 게시글 스키마
-// ============================================
 
 export const publishStatusSchema = z.enum(["DRAFT", "PUBLISHED", "SCHEDULED"]);
 
@@ -93,10 +77,6 @@ export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type UpdatePostInput = z.infer<typeof updatePostSchema>;
 export type PostQuery = z.infer<typeof postQuerySchema>;
 
-// ============================================
-// 댓글 스키마
-// ============================================
-
 export const createCommentSchema = z.object({
   content: z
     .string()
@@ -115,10 +95,6 @@ export const updateCommentSchema = z.object({
 
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 export type UpdateCommentInput = z.infer<typeof updateCommentSchema>;
-
-// ============================================
-// 카테고리 스키마
-// ============================================
 
 export const createCategorySchema = z.object({
   name: z
@@ -140,10 +116,6 @@ export const updateCategorySchema = createCategorySchema.partial();
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 
-// ============================================
-// 태그 스키마
-// ============================================
-
 export const createTagSchema = z.object({
   name: z
     .string()
@@ -160,10 +132,6 @@ export const updateTagSchema = createTagSchema.partial();
 
 export type CreateTagInput = z.infer<typeof createTagSchema>;
 export type UpdateTagInput = z.infer<typeof updateTagSchema>;
-
-// ============================================
-// 포트폴리오 스키마
-// ============================================
 
 export const createPortfolioSchema = z.object({
   title: z
@@ -198,10 +166,6 @@ export const updatePortfolioSchema = createPortfolioSchema.partial();
 export type CreatePortfolioInput = z.infer<typeof createPortfolioSchema>;
 export type UpdatePortfolioInput = z.infer<typeof updatePortfolioSchema>;
 
-// ============================================
-// 기술 스택 스키마
-// ============================================
-
 export const createTechStackSchema = z.object({
   name: z
     .string()
@@ -215,10 +179,6 @@ export const updateTechStackSchema = createTechStackSchema.partial();
 export type CreateTechStackInput = z.infer<typeof createTechStackSchema>;
 export type UpdateTechStackInput = z.infer<typeof updateTechStackSchema>;
 
-// ============================================
-// 좋아요 스키마
-// ============================================
-
 export const likePostSchema = z.object({
   post_id: uuidSchema,
 });
@@ -229,10 +189,6 @@ export const likeCommentSchema = z.object({
 
 export type LikePostInput = z.infer<typeof likePostSchema>;
 export type LikeCommentInput = z.infer<typeof likeCommentSchema>;
-
-// ============================================
-// 공통 파라미터 스키마
-// ============================================
 
 export const idParamSchema = z.object({
   id: uuidSchema,

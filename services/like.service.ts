@@ -1,13 +1,11 @@
 /**
- * Like Service
- * 좋아요 관련 비즈니스 로직
+ * 좋아요 서비스
+ *
+ * 게시글/댓글 공통 토글 방식 (이미 좋아요 → 취소, 없으면 → 추가).
+ * 게시글 좋아요는 트랜잭션으로 like_count 동기화, 댓글은 _count로 집계.
  */
 import { prisma } from "@/lib/prismaClient.js";
 import { NotFoundError } from "@/lib/errors.js";
-
-// ============================================
-// Types
-// ============================================
 
 type LikeTarget = "post" | "comment";
 
@@ -15,10 +13,6 @@ interface ToggleLikeResult {
   isLiked: boolean;
   message: string;
 }
-
-// ============================================
-// Like Service
-// ============================================
 
 /**
  * 좋아요 토글 (추가/취소)

@@ -11,9 +11,6 @@ import { categoryIdParamsSchema } from "@/utils/schemas.js";
 import { findByIdOrThrow, checkUniqueName } from "@/utils/prismaHelpers.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
-// ============================================
-// Schemas
-// ============================================
 
 const createCategorySchema = z.object({
   name: z.string().min(1, "카테고리명은 필수입니다.").max(50, "카테고리명은 50자 이하여야 합니다."),
@@ -22,9 +19,6 @@ const createCategorySchema = z.object({
 
 const updateCategorySchema = createCategorySchema.partial();
 
-// ============================================
-// Select Objects
-// ============================================
 
 const categorySelect = {
   id: true,
@@ -34,9 +28,6 @@ const categorySelect = {
   created_at: true,
 } as const;
 
-// ============================================
-// Routes
-// ============================================
 
 const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -151,7 +142,6 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
       const input = createCategorySchema.parse(request.body);
 
-      // 이름 중복 체크
       await checkUniqueName("category", input.name);
 
       const category = await prisma.category.create({

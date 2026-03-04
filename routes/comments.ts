@@ -17,10 +17,6 @@ import {
 } from "@/services/comment.service.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
-// ============================================
-// Schemas
-// ============================================
-
 const commentListQuerySchema = z.object({
   post_id: z.string().uuid("유효하지 않은 게시글 ID입니다."),
   page: z.coerce.number().int().positive().default(1),
@@ -37,10 +33,7 @@ const updateCommentSchema = z.object({
   content: z.string().min(1, "댓글 내용은 필수입니다.").max(2000, "댓글은 2000자 이하여야 합니다."),
 });
 
-// ============================================
-// Select Objects (답글 포함)
-// ============================================
-
+/** 답글 포함 댓글 select */
 const commentWithRepliesSelect = {
   ...commentSelect,
   replies: {
@@ -61,10 +54,6 @@ const commentWithRepliesSelect = {
     },
   },
 } as const;
-
-// ============================================
-// Routes
-// ============================================
 
 const commentsRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -95,7 +84,6 @@ const commentsRoutes: FastifyPluginAsync = async (fastify) => {
       const { post_id, page, limit } = commentListQuerySchema.parse(request.query);
       const skip = (page - 1) * limit;
 
-      // 게시글 존재 확인
       const post = await prisma.post.findUnique({
         where: { id: post_id },
         select: { id: true, status: true },
@@ -146,7 +134,6 @@ const commentsRoutes: FastifyPluginAsync = async (fastify) => {
         userLikedCommentIds = new Set(userLikes.map((l) => l.comment_id));
       }
 
-      // 응답 데이터 가공
       const data = comments.map((comment) => ({
         ...comment,
         like_count: comment._count.commentLikes,

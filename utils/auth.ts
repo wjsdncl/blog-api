@@ -1,3 +1,9 @@
+/**
+ * JWT 토큰 유틸리티
+ *
+ * Access Token: 15분 (짧은 주기로 탈취 피해 최소화)
+ * Refresh Token: 7일 (미들웨어에서 자동 갱신)
+ */
 import jwt from "jsonwebtoken";
 import type { JwtPayload, TokenPair } from "@/types/auth.js";
 
@@ -8,7 +14,6 @@ if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
   throw new Error("JWT secrets are required in environment variables");
 }
 
-// JWT 토큰 생성 함수 (보안 강화: 15분 AccessToken)
 export function generateTokens(userId: string, email: string): TokenPair {
   const payload: Omit<JwtPayload, "iat" | "exp"> = {
     userId,
@@ -30,7 +35,6 @@ export function generateTokens(userId: string, email: string): TokenPair {
   return { accessToken, refreshToken };
 }
 
-// 토큰 검증 함수
 export function verifyAccessToken(token: string): JwtPayload {
   const decoded = jwt.verify(token, JWT_SECRET);
   return decoded as JwtPayload;
@@ -41,7 +45,7 @@ export function verifyRefreshToken(token: string): JwtPayload {
   return decoded as JwtPayload;
 }
 
-// 토큰에서 Bearer 제거
+/** "Bearer xxx" 헤더에서 토큰 부분만 추출 */
 export function extractTokenFromHeader(authHeader?: string): string | null {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return null;

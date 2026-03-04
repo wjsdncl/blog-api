@@ -1,3 +1,10 @@
+/**
+ * Winston 로거
+ *
+ * logs/error.log: 에러만 (5MB × 5파일 로테이션)
+ * logs/combined.log: 전체 로그
+ * 개발 환경: 콘솔에도 컬러 출력
+ */
 import winston from "winston";
 import path from "path";
 
