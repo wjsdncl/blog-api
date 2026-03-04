@@ -12,15 +12,6 @@ import { ForbiddenError } from "@/lib/errors.js";
 import type { OAuthUserInfo } from "@/services/oauth/types.js";
 
 /**
- * 비활성화된 사용자 에러
- */
-export class InactiveUserError extends ForbiddenError {
-  constructor() {
-    super("비활성화된 계정입니다. 관리자에게 문의해주세요.");
-  }
-}
-
-/**
  * 이메일로 사용자 조회 후 없으면 생성
  * - 기존 사용자가 다른 OAuth 제공자로 로그인 시 Auth 정보 업데이트
  * - 비활성화된 사용자는 InactiveUserError 발생
@@ -41,7 +32,7 @@ export async function findOrCreateUser(userInfo: OAuthUserInfo) {
         email,
         provider,
       });
-      throw new InactiveUserError();
+      throw new ForbiddenError("비활성화된 계정입니다. 관리자에게 문의해주세요.");
     }
 
     // 기존 사용자 - Auth 정보 확인/생성

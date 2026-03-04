@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prismaClient.js";
 import { generateTokens, verifyRefreshToken, verifyAccessToken } from "@/utils/auth.js";
 import { config } from "@/config/index.js";
 import { logger } from "@/utils/logger.js";
-import { BadRequestError, UnauthorizedError } from "@/lib/errors.js";
+import { BadRequestError, UnauthorizedError, ForbiddenError } from "@/lib/errors.js";
 
 // Services
 import { getOAuthService, getSupportedProviders } from "@/services/oauth/index.js";
@@ -20,7 +20,6 @@ import {
   setAuthCookies,
   clearAuthCookies,
   getSessionInfo,
-  InactiveUserError,
 } from "@/services/auth.service.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
@@ -162,7 +161,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
         return reply.redirect(`${config.frontendUrl}/auth/callback?provider=${saved.provider}`);
       } catch (error) {
-        if (error instanceof InactiveUserError) {
+        if (error instanceof ForbiddenError) {
           logger.warn("Inactive user login blocked", { provider: saved.provider });
           return reply.redirect(`${config.frontendUrl}/auth/error?message=account_inactive`);
         }

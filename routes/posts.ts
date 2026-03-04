@@ -10,7 +10,7 @@ import { NotFoundError } from "@/lib/errors.js";
 import { postIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
 import { addStatusFilter, assertPublicAccess, incrementViewCount } from "@/utils/prismaHelpers.js";
 import { toggleLike } from "@/services/like.service.js";
-import { createPost, updatePost, deletePost, postDetailSelect } from "@/services/post.service.js";
+import { createPost, updatePost, deletePost, postListSelect, postDetailSelect } from "@/services/post.service.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
 const postListQuerySchema = z.object({
@@ -35,33 +35,6 @@ const createPostSchema = z.object({
 });
 
 const updatePostSchema = createPostSchema.partial();
-
-const postListSelect = {
-  id: true,
-  title: true,
-  slug: true,
-  excerpt: true,
-  cover_image: true,
-  status: true,
-  view_count: true,
-  like_count: true,
-  comment_count: true,
-  published_at: true,
-  created_at: true,
-  category: {
-    select: {
-      id: true,
-      name: true,
-    },
-  },
-  tags: {
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-    },
-  },
-} as const;
 
 const postsRoutes: FastifyPluginAsync = async (fastify) => {
   /**

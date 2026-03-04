@@ -31,7 +31,7 @@ export interface UpdatePostInput {
   published_at?: Date;
 }
 
-const postListSelect = {
+export const postListSelect = {
   id: true,
   title: true,
   slug: true,
