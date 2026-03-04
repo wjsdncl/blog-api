@@ -34,28 +34,32 @@ export async function generateUniqueSlug(
   excludeId?: string,
 ): Promise<string> {
   const baseSlug = generateSlug(text);
-  let slug = baseSlug;
-  let counter = 1;
 
-  const findBySlug = async (slug: string): Promise<{ id: string } | null> => {
+  const findAllBySlugPrefix = async (base: string): Promise<{ id: string; slug: string }[]> => {
+    const where = {
+      slug: { startsWith: base },
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    };
+    const select = { id: true, slug: true };
+
     switch (model) {
       case "post":
-        return prisma.post.findUnique({ where: { slug }, select: { id: true } });
+        return prisma.post.findMany({ where, select });
       case "tag":
-        return prisma.tag.findUnique({ where: { slug }, select: { id: true } });
+        return prisma.tag.findMany({ where, select });
       case "portfolio":
-        return prisma.portfolio.findUnique({ where: { slug }, select: { id: true } });
+        return prisma.portfolio.findMany({ where, select });
     }
   };
 
-  while (true) {
-    const existing = await findBySlug(slug);
+  const existing = await findAllBySlugPrefix(baseSlug);
+  const existingSlugs = new Set(existing.map((e) => e.slug));
 
-    if (!existing || existing.id === excludeId) {
-      return slug;
-    }
+  if (!existingSlugs.has(baseSlug)) return baseSlug;
 
-    slug = `${baseSlug}-${counter}`;
+  let counter = 1;
+  while (existingSlugs.has(`${baseSlug}-${counter}`)) {
     counter++;
   }
+  return `${baseSlug}-${counter}`;
 }
