@@ -7,6 +7,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prismaClient.js";
 import { optionalAuthenticate, requiredAuthenticate } from "@/middleware/auth.js";
 import { NotFoundError } from "@/lib/errors.js";
+import { buildPaginationMeta } from "@/utils/prismaHelpers.js";
 import { commentIdParamsSchema } from "@/utils/schemas.js";
 import { toggleLike } from "@/services/like.service.js";
 import {
@@ -151,19 +152,10 @@ const commentsRoutes: FastifyPluginAsync = async (fastify) => {
         })),
       }));
 
-      const totalPages = Math.ceil(total / limit);
-
       return reply.send({
         success: true,
         data,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-          hasNext: page < totalPages,
-          hasPrev: page > 1,
-        },
+        pagination: buildPaginationMeta(page, limit, total),
       });
     },
   });

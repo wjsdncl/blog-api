@@ -7,6 +7,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prismaClient.js";
 import { requiredAuthenticate, optionalAuthenticate, requireOwner } from "@/middleware/auth.js";
 import { NotFoundError, ConflictError, BadRequestError } from "@/lib/errors.js";
+import { buildPaginationMeta } from "@/utils/prismaHelpers.js";
 import { userIdParamsSchema } from "@/utils/schemas.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
@@ -108,19 +109,10 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         prisma.user.count({ where }),
       ]);
 
-      const totalPages = Math.ceil(total / limit);
-
       return reply.send({
         success: true,
         data: users,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-          hasNext: page < totalPages,
-          hasPrev: page > 1,
-        },
+        pagination: buildPaginationMeta(page, limit, total),
       });
     },
   });

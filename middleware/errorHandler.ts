@@ -39,8 +39,18 @@ export async function errorHandler(
     ...(DEBUG_MODE && { stack: error.stack }),
   };
 
-  // 에러 로깅
-  logger.error("Request error", {
+  // 에러 로깅 (4xx 클라이언트 에러는 warn, 5xx 서버 에러는 error)
+  const isClientError =
+    error instanceof ZodError ||
+    error instanceof Prisma.PrismaClientValidationError ||
+    (error instanceof Prisma.PrismaClientKnownRequestError &&
+      ["P2000", "P2001", "P2002", "P2003", "P2025"].includes(error.code)) ||
+    error instanceof TokenExpiredError ||
+    error instanceof NotBeforeError ||
+    error instanceof JsonWebTokenError ||
+    error instanceof AppError;
+  const logFn = isClientError ? logger.warn.bind(logger) : logger.error.bind(logger);
+  logFn("Request error", {
     message: error.message,
     name: error.name,
     stack: error.stack,

@@ -240,3 +240,19 @@ export function calculatePublishedAt(
   }
   return providedDate;
 }
+
+
+/**
+ * 페이지네이션 메타데이터 생성
+ */
+export function buildPaginationMeta(page: number, limit: number, total: number) {
+  const totalPages = Math.ceil(total / limit);
+  return {
+    page,
+    limit,
+    total,
+    totalPages,
+    hasNext: page < totalPages,
+    hasPrev: page > 1,
+  };
+}

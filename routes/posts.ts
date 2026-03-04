@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prismaClient.js";
 import { optionalAuthenticate, requiredAuthenticate, requireOwner } from "@/middleware/auth.js";
 import { NotFoundError } from "@/lib/errors.js";
 import { postIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
-import { buildStatusFilter, assertPublicAccess, incrementViewCount } from "@/utils/prismaHelpers.js";
+import { buildStatusFilter, assertPublicAccess, incrementViewCount, buildPaginationMeta } from "@/utils/prismaHelpers.js";
 import { toggleLike } from "@/services/like.service.js";
 import { createPost, updatePost, deletePost, postListSelect, postDetailSelect } from "@/services/post.service.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
@@ -102,19 +102,10 @@ const postsRoutes: FastifyPluginAsync = async (fastify) => {
         prisma.post.count({ where }),
       ]);
 
-      const totalPages = Math.ceil(total / limit);
-
       return reply.send({
         success: true,
         data: posts,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-          hasNext: page < totalPages,
-          hasPrev: page > 1,
-        },
+        pagination: buildPaginationMeta(page, limit, total),
       });
     },
   });

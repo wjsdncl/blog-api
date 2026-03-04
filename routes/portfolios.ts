@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prismaClient.js";
 import { optionalAuthenticate, requireOwner } from "@/middleware/auth.js";
 import { NotFoundError } from "@/lib/errors.js";
 import { portfolioIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
-import { buildStatusFilter, assertPublicAccess, incrementViewCount } from "@/utils/prismaHelpers.js";
+import { buildStatusFilter, assertPublicAccess, incrementViewCount, buildPaginationMeta } from "@/utils/prismaHelpers.js";
 import { createPortfolio, updatePortfolio, deletePortfolio, portfolioListSelect, portfolioDetailSelect } from "@/services/portfolio.service.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
@@ -105,19 +105,10 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
         prisma.portfolio.count({ where }),
       ]);
 
-      const totalPages = Math.ceil(total / limit);
-
       return reply.send({
         success: true,
         data: portfolios,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-          hasNext: page < totalPages,
-          hasPrev: page > 1,
-        },
+        pagination: buildPaginationMeta(page, limit, total),
       });
     },
   });
