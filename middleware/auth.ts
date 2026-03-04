@@ -7,7 +7,7 @@
  * 3. 토큰 만료 + Refresh Token 존재 → 새 토큰 쌍 발급 (응답 헤더에 포함)
  * 4. 토큰 무효 → isRequired에 따라 401 반환 또는 user=null로 통과
  */
-import { FastifyRequest, FastifyReply, HookHandlerDoneFunction } from "fastify";
+import { FastifyRequest, FastifyReply } from "fastify";
 import { verifyAccessToken, verifyRefreshToken, generateTokens } from "@/utils/auth.js";
 import { prisma } from "@/lib/prismaClient.js";
 import { logger } from "@/utils/logger.js";
@@ -64,12 +64,12 @@ async function handleAuthentication(
       } else {
         request.user = decoded as User;
       }
-    } catch (dbErr: any) {
-      logger.error("Failed to fetch user during auth", { error: dbErr.message });
+    } catch (dbErr: unknown) {
+      logger.error("Failed to fetch user during auth", { error: dbErr instanceof Error ? dbErr.message : String(dbErr) });
       request.user = decoded as User; // fallback
     }
-  } catch (err: any) {
-    if (err.name === "TokenExpiredError" && refreshToken) {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "TokenExpiredError" && refreshToken) {
       try {
         const refreshDecoded = verifyRefreshToken(refreshToken);
         const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(
@@ -82,9 +82,9 @@ async function handleAuthentication(
 
         request.user = refreshDecoded as User;
         logger.info("Token refreshed", { userId: refreshDecoded.userId });
-      } catch (refreshErr: any) {
+      } catch (refreshErr: unknown) {
         logger.warn("Refresh token verification failed", {
-          error: refreshErr.message,
+          error: refreshErr instanceof Error ? refreshErr.message : String(refreshErr),
           ip: request.ip,
         });
         if (isRequired) {
@@ -98,7 +98,7 @@ async function handleAuthentication(
       }
     } else {
       logger.warn("Access token verification failed", {
-        error: err.message,
+        error: err instanceof Error ? err.message : String(err),
         ip: request.ip,
       });
       if (isRequired) {

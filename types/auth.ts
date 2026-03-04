@@ -2,7 +2,8 @@
 export interface JwtPayload {
   userId: string;
   email: string;
-  [key: string]: any;
+  iat?: number;
+  exp?: number;
 }
 
 export interface TokenPair {

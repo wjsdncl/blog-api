@@ -7,7 +7,7 @@
 import { FastifyRequest, FastifyReply, FastifyError } from "fastify";
 import jwt from "jsonwebtoken";
 import { Prisma } from "@/lib/generated/prisma/client.js";
-import { ZodError } from "zod";
+import { ZodError, ZodIssue } from "zod";
 import { AppError } from "@/lib/errors.js";
 import { logger } from "@/utils/logger.js";
 
@@ -51,7 +51,7 @@ export async function errorHandler(
 
   // Zod 유효성 검증 오류
   if (error instanceof ZodError) {
-    const fieldErrors = error.issues.map((err: any) => `${err.path.join(".")}: ${err.message}`).join(", ");
+    const fieldErrors = error.issues.map((issue: ZodIssue) => `${issue.path.join(".")}: ${issue.message}`).join(", ");
     response = {
       success: false,
       error: `입력 데이터 오류: ${fieldErrors}`,

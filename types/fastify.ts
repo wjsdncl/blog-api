@@ -28,14 +28,3 @@ declare module "fastify" {
 export interface AuthenticatedRequest extends FastifyRequest {
   user: User & { id: string; role: role };
 }
-
-export interface TypedRequest<TBody = any, TQuery = any, TParams = any> extends FastifyRequest {
-  body: TBody;
-  query: TQuery;
-  params: TParams;
-}
-
-export interface AuthenticatedTypedRequest<TBody = any, TQuery = any, TParams = any>
-  extends TypedRequest<TBody, TQuery, TParams> {
-  user: User;
-}
