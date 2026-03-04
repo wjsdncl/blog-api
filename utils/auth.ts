@@ -37,10 +37,12 @@ export function generateTokens(userId: string, email: string): TokenPair {
 
 export function verifyAccessToken(token: string): JwtPayload {
   const decoded = jwt.verify(token, JWT_SECRET);
+  if (typeof decoded === "string") throw new Error("Unexpected JWT payload format");
   return decoded as JwtPayload;
 }
 
 export function verifyRefreshToken(token: string): JwtPayload {
   const decoded = jwt.verify(token, JWT_REFRESH_SECRET);
+  if (typeof decoded === "string") throw new Error("Unexpected JWT payload format");
   return decoded as JwtPayload;
 }

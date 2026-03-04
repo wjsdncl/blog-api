@@ -19,7 +19,8 @@ async function handleAuthentication(
   isRequired: boolean
 ): Promise<void> {
   const authHeader = request.headers.authorization;
-  const refreshToken = request.headers["x-refresh-token"] as string;
+  const refreshTokenHeader = request.headers["x-refresh-token"];
+  const refreshToken = typeof refreshTokenHeader === "string" ? refreshTokenHeader : undefined;
 
   if (!authHeader) {
     if (isRequired) {

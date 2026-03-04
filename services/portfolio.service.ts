@@ -166,48 +166,52 @@ export async function updatePortfolio(id: string, input: UpdatePortfolioInput) {
 
   const publishedAt = calculatePublishedAt(input.status, input.published_at, portfolio.status);
 
-  // 링크 업데이트 (전체 교체)
+  const updateData = {
+    ...(input.title && { title: input.title }),
+    ...(newSlug && { slug: newSlug }),
+    ...(input.content && { content: input.content }),
+    ...(input.excerpt !== undefined && { excerpt: input.excerpt }),
+    ...(input.cover_image !== undefined && { cover_image: input.cover_image }),
+    ...(input.start_date !== undefined && { start_date: input.start_date }),
+    ...(input.end_date !== undefined && { end_date: input.end_date }),
+    ...(input.status && { status: input.status }),
+    ...(input.order !== undefined && { order: input.order }),
+    ...(input.category_id !== undefined && { category_id: input.category_id }),
+    ...(publishedAt && { published_at: publishedAt }),
+    ...(input.tag_ids && {
+      tags: {
+        set: input.tag_ids.map((tagId) => ({ id: tagId })),
+      },
+    }),
+    ...(input.tech_stack_ids && {
+      techStacks: {
+        set: input.tech_stack_ids.map((techId) => ({ id: techId })),
+      },
+    }),
+    ...(input.links && {
+      links: {
+        create: input.links.map((link, index) => ({
+          type: link.type,
+          url: link.url,
+          label: link.label,
+          order: link.order ?? index,
+        })),
+      },
+    }),
+  };
+
+  // 링크 업데이트 시 deleteMany + update를 트랜잭션으로 묶어 데이터 정합성 보장
   if (input.links !== undefined) {
-    await prisma.portfolioLink.deleteMany({
-      where: { portfolio_id: id },
-    });
+    const [, updated] = await prisma.$transaction([
+      prisma.portfolioLink.deleteMany({ where: { portfolio_id: id } }),
+      prisma.portfolio.update({ where: { id }, data: updateData, select: portfolioDetailSelect }),
+    ]);
+    return updated;
   }
 
   return prisma.portfolio.update({
     where: { id },
-    data: {
-      ...(input.title && { title: input.title }),
-      ...(newSlug && { slug: newSlug }),
-      ...(input.content && { content: input.content }),
-      ...(input.excerpt !== undefined && { excerpt: input.excerpt }),
-      ...(input.cover_image !== undefined && { cover_image: input.cover_image }),
-      ...(input.start_date !== undefined && { start_date: input.start_date }),
-      ...(input.end_date !== undefined && { end_date: input.end_date }),
-      ...(input.status && { status: input.status }),
-      ...(input.order !== undefined && { order: input.order }),
-      ...(input.category_id !== undefined && { category_id: input.category_id }),
-      ...(publishedAt && { published_at: publishedAt }),
-      ...(input.tag_ids && {
-        tags: {
-          set: input.tag_ids.map((tagId) => ({ id: tagId })),
-        },
-      }),
-      ...(input.tech_stack_ids && {
-        techStacks: {
-          set: input.tech_stack_ids.map((techId) => ({ id: techId })),
-        },
-      }),
-      ...(input.links && {
-        links: {
-          create: input.links.map((link, index) => ({
-            type: link.type,
-            url: link.url,
-            label: link.label,
-            order: link.order ?? index,
-          })),
-        },
-      }),
-    },
+    data: updateData,
     select: portfolioDetailSelect,
   });
 }

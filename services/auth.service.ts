@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prismaClient.js";
 import { config } from "@/config/index.js";
 import { logger } from "@/utils/logger.js";
 import { ForbiddenError } from "@/lib/errors.js";
+import { role } from "@/lib/generated/prisma/client.js";
 import type { OAuthUserInfo } from "@/services/oauth/types.js";
 
 /**
@@ -78,7 +79,7 @@ export async function findOrCreateUser(userInfo: OAuthUserInfo) {
     data: {
       email,
       username,
-      role: "USER",
+      role: role.USER,
       auth: {
         create: {
           provider,
