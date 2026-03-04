@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prismaClient.js";
 import { generateTokens, verifyRefreshToken, verifyAccessToken } from "@/utils/auth.js";
 import { config } from "@/config/index.js";
 import { logger } from "@/utils/logger.js";
-import { BadRequestError, UnauthorizedError, ForbiddenError } from "@/lib/errors.js";
+import { AppError, BadRequestError, UnauthorizedError, ForbiddenError } from "@/lib/errors.js";
 
 // Services
 import { getOAuthService, getSupportedProviders } from "@/services/oauth/index.js";
@@ -214,7 +214,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const decoded = verifyRefreshToken(refreshToken);
 
-          const user = await prisma.user.findUnique({
+        const user = await prisma.user.findUnique({
           where: { id: decoded.userId },
           select: { id: true, email: true, is_active: true },
         });
@@ -237,6 +237,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           message: "토큰이 갱신되었습니다.",
         });
       } catch (error) {
+        if (error instanceof AppError) throw error;
         clearAuthCookies(reply);
         throw new UnauthorizedError("유효하지 않은 리프레시 토큰입니다.");
       }

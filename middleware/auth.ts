@@ -102,7 +102,7 @@ async function handleAuthentication(
         ip: request.ip,
       });
       if (isRequired) {
-        return reply.status(403).send({
+        return reply.status(401).send({
           success: false,
           error: "인증에 실패했습니다.",
         });
