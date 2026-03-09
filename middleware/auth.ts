@@ -4,11 +4,12 @@
  * 인증 흐름:
  * 1. Authorization 헤더에서 Access Token 추출
  * 2. 토큰 유효 → DB에서 최신 사용자 정보 조회 후 request.user에 할당
- * 3. 토큰 만료 + Refresh Token 존재 → 새 토큰 쌍 발급 (응답 헤더에 포함)
+ * 3. 토큰 만료 + Refresh Token 존재 → 새 토큰 쌍 발급 (쿠키 갱신)
  * 4. 토큰 무효 → isRequired에 따라 401 반환 또는 user=null로 통과
  */
 import { FastifyRequest, FastifyReply } from "fastify";
 import { verifyAccessToken, verifyRefreshToken, generateTokens } from "@/utils/auth.js";
+import { setAuthCookies } from "@/services/auth.service.js";
 import { prisma } from "@/lib/prismaClient.js";
 import { logger } from "@/utils/logger.js";
 import { User } from "@/types/fastify.js";
@@ -79,8 +80,7 @@ async function handleAuthentication(
           refreshDecoded.email || ""
         );
 
-        reply.header("Authorization", `Bearer ${newAccessToken}`);
-        reply.header("X-Refresh-Token", newRefreshToken);
+        setAuthCookies(reply, newAccessToken, newRefreshToken);
 
         request.user = refreshDecoded as User;
         logger.info("Token refreshed", { userId: refreshDecoded.userId });
