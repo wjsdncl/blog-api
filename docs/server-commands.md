@@ -80,6 +80,10 @@ npm run build
 pm2 restart blog-api
 ```
 
+```bash
+cd /var/www/api && git pull origin main && npm ci && npx prisma generate && npm run build && pm2 restart blog-api
+```
+
 ---
 
 ## Prisma
