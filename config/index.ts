@@ -57,7 +57,7 @@ export const config: Config = {
   cookieOptions: {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? "lax" : "none",
+    sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7, // 7일 (초 단위)
     ...(isProduction && { domain: ".wjdalswo.xyz" }),
