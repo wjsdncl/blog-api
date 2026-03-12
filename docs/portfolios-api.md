@@ -39,7 +39,7 @@ Query Parameters:
 - page: number (default: 1)
 - limit: number (default: 10, max: 50)
 - status: "DRAFT" | "PUBLISHED" | "SCHEDULED" (OWNER만)
-- category: string (category slug)
+- category: string (category name)
 - tag: string (tag slug)
 - tech: string (tech stack name, 대소문자 무관)
 ```
@@ -62,7 +62,7 @@ Query Parameters:
       "order": 0,
       "published_at": "2024-01-01T00:00:00.000Z",
       "created_at": "2024-01-01T00:00:00.000Z",
-      "category": { "id": "uuid", "name": "웹", "slug": "웹" },
+      "category": { "id": "uuid", "name": "웹" },
       "tags": [{ "id": "uuid", "name": "Next.js", "slug": "nextjs" }],
       "techStacks": [
         { "id": "uuid", "name": "React", "category": "Frontend" },

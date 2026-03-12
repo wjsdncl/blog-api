@@ -1,6 +1,6 @@
 # 서버 명령어 모음
 
-> 서버: Oracle Cloud (ubuntu@168.107.6.215)
+> 서버: Oracle Cloud (ubuntu@<SERVER_IP>)
 > 앱 경로: /var/www/api
 
 ---
@@ -8,7 +8,7 @@
 ## SSH 접속
 
 ```bash
-ssh -i "C:\Users\wlke2\.ssh\ssh-key-2026-02-24.key" ubuntu@168.107.6.215
+ssh -i "<SSH_KEY_PATH>" ubuntu@<SERVER_IP>
 ```
 
 ---

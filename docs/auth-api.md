@@ -97,34 +97,38 @@ Client                    Backend                   OAuth Provider
 
 ## 쿠키 설정
 
-| Cookie | MaxAge | 용도 |
-|--------|--------|------|
-| `access_token` | 15분 | API 인증 |
-| `refresh_token` | 7일 | 토큰 갱신 |
-| `oauth_state` | 10분 | CSRF 방지 (로그인 중에만) |
+| Cookie | HttpOnly | MaxAge | 용도 |
+|--------|----------|--------|------|
+| `access_token` | O | 15분 | API 인증 |
+| `refresh_token` | O | 7일 | 토큰 갱신 |
+| `is_logged_in` | X | 7일 | 클라이언트 로그인 상태 체크 |
+| `oauth_state` | O | 10분 | CSRF 방지 (로그인 중에만) |
 
-**옵션**: `httpOnly`, `secure` (production), `sameSite: lax`, `path: /`
+**공통 옵션**: `secure` (production), `sameSite: lax`, `path: /`
+**프로덕션**: `domain: .wjdalswo.xyz`
 
 ---
 
 ## Frontend 연동
 
+### 토큰 갱신 구조
+
+토큰 갱신은 프론트엔드에서 2가지 경로로 처리된다.
+
+| 경로 | 위치 | 트리거 |
+|------|------|--------|
+| SSR | Next.js 미들웨어 (`middleware.ts`) | 페이지 요청 시 access_token 없고 refresh_token만 있을 때 |
+| CSR | API 프록시 (`app/api/[...path]/route.ts`) | 클라이언트 API 호출 시 access_token 없고 refresh_token만 있을 때 |
+
+### 인증 데이터 전달
+
+서버 컴포넌트에서 `getUser()`로 사용자 정보를 조회한 뒤, props로 클라이언트 컴포넌트에 전달한다. 클라이언트에서 별도 인증 API를 호출하지 않는다.
+
 ```typescript
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-// 로그인
-const login = (provider: 'github' | 'google') => {
-  window.location.href = `${API_URL}/auth/oauth?type=${provider}`;
-};
-
-// 인증 상태 확인
-const checkSession = () => fetch(`${API_URL}/auth/session`, { credentials: 'include' });
-
-// 토큰 갱신
-const refresh = () => fetch(`${API_URL}/auth/refresh`, {
-  method: 'POST',
-  credentials: 'include'
-});
+// 서버 컴포넌트
+const user = await getUser();
+const isOwner = user?.role === "OWNER";
+return <ClientComponent isOwner={isOwner} />;
 ```
 
 ---

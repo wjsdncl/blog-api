@@ -2,7 +2,7 @@
 
 > 작성일: 2026-02-26
 > 서버: Oracle Cloud Instance (Ubuntu)
-> IP: 168.107.6.215
+> IP: <SERVER_IP>
 > 도메인: api.wjdalswo.xyz
 > 앱 경로: /var/www/api
 
@@ -36,7 +36,7 @@ sudo -u postgres psql
 ```
 
 ```sql
-CREATE USER blog_user WITH PASSWORD '비밀번호';
+CREATE USER blog_user WITH PASSWORD '<DB_PASSWORD>';
 CREATE DATABASE blog_prod OWNER blog_user;
 
 \c blog_prod
@@ -56,16 +56,16 @@ GRANT ALL ON SCHEMA auth TO blog_user;
 NODE_ENV=production
 PORT=8000
 
-DATABASE_URL="postgresql://blog_user:비밀번호@localhost:5432/blog_prod?schema=public"
+DATABASE_URL="postgresql://blog_user:<DB_PASSWORD>@localhost:5432/blog_prod?schema=public"
 
-JWT_SECRET=openssl_rand_hex_32로_생성
-JWT_REFRESH_SECRET=openssl_rand_hex_32로_생성
+JWT_SECRET=<openssl rand -hex 32 으로 생성>
+JWT_REFRESH_SECRET=<openssl rand -hex 32 으로 생성>
 
-SUPABASE_URL=https://zrkselfyyqkkqcmxhjlt.supabase.co
-SUPABASE_ANON_KEY=기존_키_값
+SUPABASE_URL=<SUPABASE_PROJECT_URL>
+SUPABASE_ANON_KEY=<SUPABASE_ANON_KEY>
 
-GITHUB_CLIENT_ID=프로덕션용_클라이언트_ID
-GITHUB_CLIENT_SECRET=프로덕션용_클라이언트_시크릿
+GITHUB_CLIENT_ID=<GITHUB_CLIENT_ID>
+GITHUB_CLIENT_SECRET=<GITHUB_CLIENT_SECRET>
 OAUTH_CALLBACK_URL=https://api.wjdalswo.xyz/auth/oauth/callback
 
 FRONTEND_URL=https://wjdalswo.xyz
@@ -81,6 +81,7 @@ openssl rand -hex 32  # 두 번 실행하여 각각 사용
 ```
 
 필수 환경변수 (없으면 서버 시작 실패):
+
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `JWT_REFRESH_SECRET`
@@ -133,10 +134,10 @@ Oracle Cloud 콘솔 (VCN Security List):
 2. Subnets > 서브넷 선택
 3. Security Lists > Ingress Rules에 추가:
 
-| Source CIDR  | Protocol | Dest Port | 설명  |
-| ------------ | -------- | --------- | ----- |
-| `0.0.0.0/0`  | TCP      | 80        | HTTP  |
-| `0.0.0.0/0`  | TCP      | 443       | HTTPS |
+| Source CIDR | Protocol | Dest Port | 설명  |
+| ----------- | -------- | --------- | ----- |
+| `0.0.0.0/0` | TCP      | 80        | HTTP  |
+| `0.0.0.0/0` | TCP      | 443       | HTTPS |
 
 #### 2-3. Nginx 리버스 프록시
 
@@ -201,10 +202,10 @@ Certbot이 Nginx 설정에 SSL 블록과 HTTP→HTTPS 리다이렉트를 자동 
 
 Render → Oracle Cloud로 `BACKEND_URL` 변경:
 
-| 파일 | 변경 내용 |
-|------|----------|
-| `blog/.env` | `BACKEND_URL=https://api.wjdalswo.xyz` |
-| `blog/.env.local` | `BACKEND_URL=https://api.wjdalswo.xyz` |
+| 파일                                       | 변경 내용                                 |
+| ------------------------------------------ | ----------------------------------------- |
+| `blog/.env`                                | `BACKEND_URL=https://api.wjdalswo.xyz`    |
+| `blog/.env.local`                          | `BACKEND_URL=https://api.wjdalswo.xyz`    |
 | `blog/src/services/instance/common.api.ts` | fallback URL → `https://api.wjdalswo.xyz` |
 
 #### 4-2. swap 메모리 추가 (완료)
@@ -222,6 +223,7 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 #### 4-3. GitHub OAuth 앱 설정
 
 GitHub > Settings > Developer settings > OAuth Apps:
+
 - **Homepage URL**: `https://wjdalswo.xyz`
 - **Authorization callback URL**: `https://api.wjdalswo.xyz/auth/oauth/callback`
 
@@ -323,7 +325,7 @@ GitHub > Settings > Developer settings > OAuth Apps:
 ### SSH 접속
 
 ```bash
-ssh -i "C:\Users\wlke2\.ssh\ssh-key-2026-02-24.key" ubuntu@168.107.6.215
+ssh -i "<SSH_KEY_PATH>" ubuntu@<SERVER_IP>
 ```
 
 ### 서비스 상태 확인

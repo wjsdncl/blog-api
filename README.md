@@ -9,7 +9,7 @@ Fastify + Prisma + PostgreSQL 기반 블로그 백엔드 API.
 - **ORM**: Prisma 7 (`@prisma/adapter-pg`)
 - **Database**: PostgreSQL
 - **Language**: TypeScript 5.9
-- **Auth**: JWT + GitHub OAuth
+- **Auth**: JWT + OAuth (GitHub, Google)
 - **Storage**: Supabase (이미지)
 
 ## 배포 환경
@@ -37,7 +37,7 @@ npm install
 `.env` 파일을 생성하고 아래 항목을 설정:
 
 ```env
-DATABASE_URL="postgresql://postgres:qwer1234@localhost:5432/blog_dev?schema=public"
+DATABASE_URL="postgresql://postgres:<PASSWORD>@localhost:5432/blog_dev?schema=public"
 PORT=8000
 
 JWT_SECRET=
@@ -116,3 +116,19 @@ npx prisma migrate deploy                # 프로덕션 마이그레이션
 서버 SSH 접속, PM2 관리, Nginx 설정, SSL 갱신 등 상세 운영 가이드는 아래 문서 참조:
 
 - [Oracle Cloud 배포 가이드](docs/oracle-cloud-deployment.md)
+- [서버 운영 명령어](docs/server-commands.md)
+
+## API 문서
+
+| 문서 | 설명 |
+|------|------|
+| [Auth API](docs/auth-api.md) | OAuth 인증 (GitHub, Google) |
+| [Posts API](docs/posts-api.md) | 게시글 CRUD, 좋아요 |
+| [Comments API](docs/comments-api.md) | 댓글/답글, 좋아요 |
+| [Categories API](docs/categories-api.md) | 카테고리 관리 |
+| [Tags API](docs/tags-api.md) | 태그 관리 |
+| [Users API](docs/users-api.md) | 사용자 프로필, 관리 |
+| [Portfolios API](docs/portfolios-api.md) | 포트폴리오 CRUD |
+| [Tech Stacks API](docs/tech-stacks-api.md) | 기술 스택 관리 |
+| [Upload API](docs/upload-api.md) | 이미지 업로드 |
+| [Troubleshooting](docs/troubleshooting.md) | 트러블슈팅 기록 |

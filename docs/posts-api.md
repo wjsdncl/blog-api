@@ -45,7 +45,7 @@ Query Parameters:
 - page: number (default: 1)
 - limit: number (default: 10, max: 50)
 - status: "DRAFT" | "PUBLISHED" | "SCHEDULED" (OWNER만)
-- category: string (category slug)
+- category: string (category name)
 - tag: string (tag slug)
 - search: string (제목, 내용 검색)
 ```
@@ -107,7 +107,7 @@ Query Parameters:
     "published_at": "2024-01-01T00:00:00.000Z",
     "created_at": "2024-01-01T00:00:00.000Z",
     "updated_at": "2024-01-01T00:00:00.000Z",
-    "isLiked": true,
+    "is_liked": true,
     "category": { ... },
     "tags": [ ... ]
   }
@@ -201,7 +201,7 @@ PUBLISHED              SCHEDULED
 ## 조회수 증가 규칙
 
 - OWNER가 조회할 때는 조회수 증가하지 않음
-- 일반 사용자가 상세 페이지 조회 시 +1
+- 동일 IP는 24시간 내 1회만 카운트 (인메모리 캐시 기반 중복 방지)
 
 ---
 

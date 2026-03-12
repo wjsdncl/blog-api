@@ -98,7 +98,7 @@
 ```
 Query Parameters:
 - page: number (default: 1)
-- limit: number (default: 20, max: 100)
+- limit: number (default: 20, max: 50)
 - search: string (username, email 검색)
 - role: "USER" | "OWNER"
 - is_active: "true" | "false"
