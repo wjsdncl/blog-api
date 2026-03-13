@@ -14,15 +14,15 @@ Fastify + Prisma + PostgreSQL 기반 블로그 백엔드 API.
 
 ## 배포 환경
 
-| 항목 | 값 |
-|------|-----|
-| 호스팅 | Oracle Cloud Instance (Ubuntu) |
-| IP | 168.107.6.215 |
-| 도메인 | https://api.wjdalswo.xyz |
-| 앱 경로 | /var/www/api |
-| 프로세스 관리 | PM2 |
-| 리버스 프록시 | Nginx |
-| SSL | Let's Encrypt (Certbot 자동 갱신) |
+| 항목          | 값                                |
+| ------------- | --------------------------------- |
+| 호스팅        | Oracle Cloud Instance (Ubuntu)    |
+| IP            | 168.107.6.215                     |
+| 도메인        | https://api.wjdalswo.xyz          |
+| 앱 경로       | /var/www/api                      |
+| 프로세스 관리 | PM2                               |
+| 리버스 프록시 | Nginx                             |
+| SSL           | Let's Encrypt (Certbot 자동 갱신) |
 
 ## 로컬 개발
 
@@ -74,14 +74,14 @@ npm start
 
 ## 주요 스크립트
 
-| 스크립트 | 설명 |
-|---|---|
-| `npm run dev` | tsx watch로 개발 서버 실행 |
-| `npm start` | 빌드된 JS로 서버 실행 (`dist/app.js`) |
-| `npm run build` | TypeScript 빌드 |
-| `npm run build:prod` | Prisma generate + TypeScript 빌드 |
-| `npm run lint` | ESLint 검사 |
-| `npm run db:migrate` | 마이그레이션 적용 |
+| 스크립트             | 설명                                  |
+| -------------------- | ------------------------------------- |
+| `npm run dev`        | tsx watch로 개발 서버 실행            |
+| `npm start`          | 빌드된 JS로 서버 실행 (`dist/app.js`) |
+| `npm run build`      | TypeScript 빌드                       |
+| `npm run build:prod` | Prisma generate + TypeScript 빌드     |
+| `npm run lint`       | ESLint 검사                           |
+| `npm run db:migrate` | 마이그레이션 적용                     |
 
 ## 프로젝트 구조
 
@@ -120,15 +120,15 @@ npx prisma migrate deploy                # 프로덕션 마이그레이션
 
 ## API 문서
 
-| 문서 | 설명 |
-|------|------|
-| [Auth API](docs/auth-api.md) | OAuth 인증 (GitHub, Google) |
-| [Posts API](docs/posts-api.md) | 게시글 CRUD, 좋아요 |
-| [Comments API](docs/comments-api.md) | 댓글/답글, 좋아요 |
-| [Categories API](docs/categories-api.md) | 카테고리 관리 |
-| [Tags API](docs/tags-api.md) | 태그 관리 |
-| [Users API](docs/users-api.md) | 사용자 프로필, 관리 |
-| [Portfolios API](docs/portfolios-api.md) | 포트폴리오 CRUD |
-| [Tech Stacks API](docs/tech-stacks-api.md) | 기술 스택 관리 |
-| [Upload API](docs/upload-api.md) | 이미지 업로드 |
-| [Troubleshooting](docs/troubleshooting.md) | 트러블슈팅 기록 |
+| 문서                                       | 설명                        |
+| ------------------------------------------ | --------------------------- |
+| [Auth API](docs/auth-api.md)               | OAuth 인증 (GitHub, Google) |
+| [Posts API](docs/posts-api.md)             | 게시글 CRUD, 좋아요         |
+| [Comments API](docs/comments-api.md)       | 댓글/답글, 좋아요           |
+| [Categories API](docs/categories-api.md)   | 카테고리 관리               |
+| [Tags API](docs/tags-api.md)               | 태그 관리                   |
+| [Users API](docs/users-api.md)             | 사용자 프로필, 관리         |
+| [Portfolios API](docs/portfolios-api.md)   | 포트폴리오 CRUD             |
+| [Tech Stacks API](docs/tech-stacks-api.md) | 기술 스택 관리              |
+| [Upload API](docs/upload-api.md)           | 이미지 업로드               |
+| [Troubleshooting](docs/troubleshooting.md) | 트러블슈팅 기록             |
