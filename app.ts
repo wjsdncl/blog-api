@@ -83,6 +83,16 @@ async function buildApp(): Promise<FastifyInstance> {
     });
   });
 
+  app.setErrorHandler(errorHandler);
+
+  app.setNotFoundHandler(async (request: FastifyRequest, reply: FastifyReply) => {
+    logger.warn("404 Not Found", { url: request.url, method: request.method, ip: request.ip });
+    return reply.status(404).send({
+      success: false,
+      error: "요청한 리소스를 찾을 수 없습니다.",
+    });
+  });
+
   await app.register(authRoutes, { prefix: "/auth" });
   await app.register(usersRoutes, { prefix: "/users" });
   await app.register(postsRoutes, { prefix: "/posts" });
@@ -93,22 +103,12 @@ async function buildApp(): Promise<FastifyInstance> {
   await app.register(techStacksRoutes, { prefix: "/tech-stacks" });
   await app.register(uploadRoutes, { prefix: "/upload" });
 
-  app.setErrorHandler(errorHandler);
-
   app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
     return reply.send({
       success: true,
       message: "Server is healthy",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-    });
-  });
-
-  app.setNotFoundHandler(async (request: FastifyRequest, reply: FastifyReply) => {
-    logger.warn("404 Not Found", { url: request.url, method: request.method, ip: request.ip });
-    return reply.status(404).send({
-      success: false,
-      error: "요청한 리소스를 찾을 수 없습니다.",
     });
   });
 
