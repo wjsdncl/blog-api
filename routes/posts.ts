@@ -27,7 +27,7 @@ const createPostSchema = z.object({
   title: z.string().min(1, "제목은 필수입니다.").max(200, "제목은 200자 이하여야 합니다."),
   content: z.string().min(1, "내용은 필수입니다."),
   excerpt: z.string().max(500, "요약은 500자 이하여야 합니다.").optional(),
-  cover_image: z.string().url("유효한 URL을 입력해주세요.").optional(),
+  cover_image: z.string().url("유효한 URL을 입력해주세요.").nullable().optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "SCHEDULED"]).default("DRAFT"),
   category_id: z.string().uuid("유효하지 않은 카테고리 ID입니다.").optional().nullable(),
   tag_ids: z.array(z.string().uuid()).max(10, "태그는 최대 10개까지 가능합니다.").optional(),

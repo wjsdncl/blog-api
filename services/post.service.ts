@@ -13,7 +13,7 @@ export interface CreatePostInput {
   title: string;
   content: string;
   excerpt?: string;
-  cover_image?: string;
+  cover_image?: string | null;
   status: "DRAFT" | "PUBLISHED" | "SCHEDULED";
   category_id?: string | null;
   tag_ids?: string[];
@@ -24,7 +24,7 @@ export interface UpdatePostInput {
   title?: string;
   content?: string;
   excerpt?: string;
-  cover_image?: string;
+  cover_image?: string | null;
   status?: "DRAFT" | "PUBLISHED" | "SCHEDULED";
   category_id?: string | null;
   tag_ids?: string[];
