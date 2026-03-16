@@ -6,6 +6,7 @@ import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { requiredAuthenticate } from "@/middleware/auth.js";
 import { BadRequestError } from "@/lib/errors.js";
 import { supabase } from "@/lib/supabase.js";
+import { processImage } from "@/utils/imageOptimizer.js";
 
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -42,19 +43,21 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
       throw new BadRequestError("지원되지 않는 이미지 형식입니다. (JPEG, PNG, GIF, WEBP만 허용)");
     }
 
-    const buffer = await file.toBuffer();
-    if (buffer.length > MAX_FILE_SIZE) {
+    const originalBuffer = await file.toBuffer();
+    if (originalBuffer.length > MAX_FILE_SIZE) {
       throw new BadRequestError("파일 크기가 10MB를 초과합니다.");
     }
 
-    const uuid = crypto.randomUUID().slice(0, 8);
-    const safeName = file.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const filePath = `posts/${uuid}-${safeName}`;
+    const { buffer, contentType, filePath } = await processImage(
+      originalBuffer,
+      file.mimetype,
+      file.filename,
+    );
 
     const { error } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(filePath, buffer, {
-        contentType: file.mimetype,
+        contentType,
         upsert: false,
       });
 
