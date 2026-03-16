@@ -85,6 +85,7 @@ export function zodToJsonSchema(schema: ZodType): JsonSchema {
         const innerDef: ZodDef = (value as ZodType)._def;
         if (
           innerDef.typeName !== ZodFirstPartyTypeKind.ZodOptional &&
+          innerDef.typeName !== ZodFirstPartyTypeKind.ZodNullable &&
           innerDef.typeName !== ZodFirstPartyTypeKind.ZodDefault
         ) {
           required.push(key);
