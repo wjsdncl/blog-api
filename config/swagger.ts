@@ -162,7 +162,6 @@ const schemas = {
       slug: { type: "string" },
       content: { type: "string" },
       excerpt: { type: "string" },
-      cover_image: { type: "string", format: "uri" },
       start_date: { type: "string", format: "date" },
       end_date: { type: "string", format: "date", nullable: true },
       status: { type: "string", enum: ["DRAFT", "PUBLISHED", "SCHEDULED"] },

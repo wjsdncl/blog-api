@@ -197,7 +197,6 @@ model Portfolio {
   slug         String        @unique // URL 경로
   content      String        @db.Text // 프로젝트 상세 설명
   excerpt      String?       @db.Text // 짧은 요약
-  cover_image  String? // 커버 이미지 URL
   start_date   DateTime? // 시작일
   end_date     DateTime? // 종료일 (NULL=진행중)
   status       publish_status @default(DRAFT) // 포트폴리오 상태
@@ -208,8 +207,9 @@ model Portfolio {
   created_at   DateTime      @default(now()) // 생성일
   updated_at   DateTime      @updatedAt // 수정일
 
-  category   Category?       @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  category   Category?        @relation(fields: [category_id], references: [id], onDelete: SetNull)
   tags       Tag[]
+  images     PortfolioImage[]
   links      PortfolioLink[]
   techStacks TechStack[]
 
@@ -217,6 +217,22 @@ model Portfolio {
   @@index([slug])
   @@index([status, order])
   @@map("portfolios")
+  @@schema("public")
+}
+
+/// 포트폴리오 이미지
+model PortfolioImage {
+  id           String   @id @default(uuid()) // 이미지 ID
+  portfolio_id String // 포트폴리오 ID
+  url          String // 이미지 URL
+  order        Int      @default(0) // 정렬 순서
+  created_at   DateTime @default(now()) // 생성일
+  updated_at   DateTime @updatedAt // 수정일
+
+  portfolio Portfolio @relation(fields: [portfolio_id], references: [id], onDelete: Cascade)
+
+  @@index([portfolio_id, order])
+  @@map("portfolio_images")
   @@schema("public")
 }
 

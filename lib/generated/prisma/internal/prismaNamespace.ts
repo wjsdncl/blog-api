@@ -393,6 +393,7 @@ export const ModelName = {
   PostLike: 'PostLike',
   CommentLike: 'CommentLike',
   Portfolio: 'Portfolio',
+  PortfolioImage: 'PortfolioImage',
   PortfolioLink: 'PortfolioLink',
   TechStack: 'TechStack'
 } as const
@@ -410,7 +411,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "auth" | "user" | "post" | "category" | "tag" | "comment" | "postLike" | "commentLike" | "portfolio" | "portfolioLink" | "techStack"
+    modelProps: "auth" | "user" | "post" | "category" | "tag" | "comment" | "postLike" | "commentLike" | "portfolio" | "portfolioImage" | "portfolioLink" | "techStack"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1080,6 +1081,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PortfolioImage: {
+      payload: Prisma.$PortfolioImagePayload<ExtArgs>
+      fields: Prisma.PortfolioImageFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PortfolioImageFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PortfolioImagePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PortfolioImageFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PortfolioImagePayload>
+        }
+        findFirst: {
+          args: Prisma.PortfolioImageFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PortfolioImagePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PortfolioImageFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PortfolioImagePayload>
+        }
+        findMany: {
+          args: Prisma.PortfolioImageFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PortfolioImagePayload>[]
+        }
+        create: {
+          args: Prisma.PortfolioImageCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PortfolioImagePayload>
+        }
+        createMany: {
+          args: Prisma.PortfolioImageCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PortfolioImageCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PortfolioImagePayload>[]
+        }
+        delete: {
+          args: Prisma.PortfolioImageDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PortfolioImagePayload>
+        }
+        update: {
+          args: Prisma.PortfolioImageUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PortfolioImagePayload>
+        }
+        deleteMany: {
+          args: Prisma.PortfolioImageDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PortfolioImageUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PortfolioImageUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PortfolioImagePayload>[]
+        }
+        upsert: {
+          args: Prisma.PortfolioImageUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PortfolioImagePayload>
+        }
+        aggregate: {
+          args: Prisma.PortfolioImageAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePortfolioImage>
+        }
+        groupBy: {
+          args: Prisma.PortfolioImageGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PortfolioImageGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PortfolioImageCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PortfolioImageCountAggregateOutputType> | number
+        }
+      }
+    }
     PortfolioLink: {
       payload: Prisma.$PortfolioLinkPayload<ExtArgs>
       fields: Prisma.PortfolioLinkFieldRefs
@@ -1375,7 +1450,6 @@ export const PortfolioScalarFieldEnum = {
   slug: 'slug',
   content: 'content',
   excerpt: 'excerpt',
-  cover_image: 'cover_image',
   start_date: 'start_date',
   end_date: 'end_date',
   status: 'status',
@@ -1388,6 +1462,18 @@ export const PortfolioScalarFieldEnum = {
 } as const
 
 export type PortfolioScalarFieldEnum = (typeof PortfolioScalarFieldEnum)[keyof typeof PortfolioScalarFieldEnum]
+
+
+export const PortfolioImageScalarFieldEnum = {
+  id: 'id',
+  portfolio_id: 'portfolio_id',
+  url: 'url',
+  order: 'order',
+  created_at: 'created_at',
+  updated_at: 'updated_at'
+} as const
+
+export type PortfolioImageScalarFieldEnum = (typeof PortfolioImageScalarFieldEnum)[keyof typeof PortfolioImageScalarFieldEnum]
 
 
 export const PortfolioLinkScalarFieldEnum = {
@@ -1639,6 +1725,7 @@ export type GlobalOmitConfig = {
   postLike?: Prisma.PostLikeOmit
   commentLike?: Prisma.CommentLikeOmit
   portfolio?: Prisma.PortfolioOmit
+  portfolioImage?: Prisma.PortfolioImageOmit
   portfolioLink?: Prisma.PortfolioLinkOmit
   techStack?: Prisma.TechStackOmit
 }

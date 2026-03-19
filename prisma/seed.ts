@@ -72,7 +72,6 @@ interface SeedData {
     slug: string;
     content: string;
     excerpt: string | null;
-    cover_image: string | null;
     start_date: string | null;
     end_date: string | null;
     status: "DRAFT" | "PUBLISHED" | "SCHEDULED";
@@ -298,7 +297,6 @@ async function main() {
         slug: pf.slug,
         content: pf.content,
         excerpt: pf.excerpt,
-        cover_image: pf.cover_image,
         start_date: pf.start_date ? new Date(pf.start_date) : null,
         end_date: pf.end_date ? new Date(pf.end_date) : null,
         status: pf.status,
@@ -314,7 +312,6 @@ async function main() {
         slug: pf.slug,
         content: pf.content,
         excerpt: pf.excerpt,
-        cover_image: pf.cover_image,
         start_date: pf.start_date ? new Date(pf.start_date) : null,
         end_date: pf.end_date ? new Date(pf.end_date) : null,
         status: pf.status,

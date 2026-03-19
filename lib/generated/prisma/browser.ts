@@ -63,6 +63,11 @@ export type CommentLike = Prisma.CommentLikeModel
  */
 export type Portfolio = Prisma.PortfolioModel
 /**
+ * Model PortfolioImage
+ * 포트폴리오 이미지
+ */
+export type PortfolioImage = Prisma.PortfolioImageModel
+/**
  * Model PortfolioLink
  * 포트폴리오 링크 (프로젝트 관련 URL)
  */

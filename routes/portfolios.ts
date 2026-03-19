@@ -21,6 +21,11 @@ const portfolioListQuerySchema = z.object({
   tech: z.string().optional(), // tech stack name
 });
 
+const portfolioImageSchema = z.object({
+  url: z.string().url("유효한 URL을 입력해주세요."),
+  order: z.number().int().min(0).default(0),
+});
+
 const portfolioLinkSchema = z.object({
   type: z.string().min(1, "링크 타입은 필수입니다.").max(50),
   url: z.string().url("유효한 URL을 입력해주세요."),
@@ -32,7 +37,6 @@ const createPortfolioSchema = z.object({
   title: z.string().min(1, "제목은 필수입니다.").max(200, "제목은 200자 이하여야 합니다."),
   content: z.string().min(1, "내용은 필수입니다."),
   excerpt: z.string().max(500, "요약은 500자 이하여야 합니다.").optional(),
-  cover_image: z.string().url("유효한 URL을 입력해주세요.").optional(),
   start_date: z.coerce.date().optional(),
   end_date: z.coerce.date().nullable().optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "SCHEDULED"]).default("DRAFT"),
@@ -40,6 +44,7 @@ const createPortfolioSchema = z.object({
   category_id: z.string().uuid("유효하지 않은 카테고리 ID입니다.").nullable().optional(),
   tag_ids: z.array(z.string().uuid()).max(10, "태그는 최대 10개까지 가능합니다.").optional(),
   tech_stack_ids: z.array(z.string().uuid()).max(20, "기술 스택은 최대 20개까지 가능합니다.").optional(),
+  images: z.array(portfolioImageSchema).max(10, "이미지는 최대 10개까지 가능합니다.").optional(),
   links: z.array(portfolioLinkSchema).max(10, "링크는 최대 10개까지 가능합니다.").optional(),
   published_at: z.coerce.date().optional(),
 });

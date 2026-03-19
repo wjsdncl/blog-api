@@ -60,6 +60,7 @@ export const ModelName = {
   PostLike: 'PostLike',
   CommentLike: 'CommentLike',
   Portfolio: 'Portfolio',
+  PortfolioImage: 'PortfolioImage',
   PortfolioLink: 'PortfolioLink',
   TechStack: 'TechStack'
 } as const
@@ -188,7 +189,6 @@ export const PortfolioScalarFieldEnum = {
   slug: 'slug',
   content: 'content',
   excerpt: 'excerpt',
-  cover_image: 'cover_image',
   start_date: 'start_date',
   end_date: 'end_date',
   status: 'status',
@@ -201,6 +201,18 @@ export const PortfolioScalarFieldEnum = {
 } as const
 
 export type PortfolioScalarFieldEnum = (typeof PortfolioScalarFieldEnum)[keyof typeof PortfolioScalarFieldEnum]
+
+
+export const PortfolioImageScalarFieldEnum = {
+  id: 'id',
+  portfolio_id: 'portfolio_id',
+  url: 'url',
+  order: 'order',
+  created_at: 'created_at',
+  updated_at: 'updated_at'
+} as const
+
+export type PortfolioImageScalarFieldEnum = (typeof PortfolioImageScalarFieldEnum)[keyof typeof PortfolioImageScalarFieldEnum]
 
 
 export const PortfolioLinkScalarFieldEnum = {

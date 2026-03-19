@@ -42,7 +42,6 @@ export type PortfolioMinAggregateOutputType = {
   slug: string | null
   content: string | null
   excerpt: string | null
-  cover_image: string | null
   start_date: Date | null
   end_date: Date | null
   status: $Enums.publish_status | null
@@ -60,7 +59,6 @@ export type PortfolioMaxAggregateOutputType = {
   slug: string | null
   content: string | null
   excerpt: string | null
-  cover_image: string | null
   start_date: Date | null
   end_date: Date | null
   status: $Enums.publish_status | null
@@ -78,7 +76,6 @@ export type PortfolioCountAggregateOutputType = {
   slug: number
   content: number
   excerpt: number
-  cover_image: number
   start_date: number
   end_date: number
   status: number
@@ -108,7 +105,6 @@ export type PortfolioMinAggregateInputType = {
   slug?: true
   content?: true
   excerpt?: true
-  cover_image?: true
   start_date?: true
   end_date?: true
   status?: true
@@ -126,7 +122,6 @@ export type PortfolioMaxAggregateInputType = {
   slug?: true
   content?: true
   excerpt?: true
-  cover_image?: true
   start_date?: true
   end_date?: true
   status?: true
@@ -144,7 +139,6 @@ export type PortfolioCountAggregateInputType = {
   slug?: true
   content?: true
   excerpt?: true
-  cover_image?: true
   start_date?: true
   end_date?: true
   status?: true
@@ -249,7 +243,6 @@ export type PortfolioGroupByOutputType = {
   slug: string
   content: string
   excerpt: string | null
-  cover_image: string | null
   start_date: Date | null
   end_date: Date | null
   status: $Enums.publish_status
@@ -290,7 +283,6 @@ export type PortfolioWhereInput = {
   slug?: Prisma.StringFilter<"Portfolio"> | string
   content?: Prisma.StringFilter<"Portfolio"> | string
   excerpt?: Prisma.StringNullableFilter<"Portfolio"> | string | null
-  cover_image?: Prisma.StringNullableFilter<"Portfolio"> | string | null
   start_date?: Prisma.DateTimeNullableFilter<"Portfolio"> | Date | string | null
   end_date?: Prisma.DateTimeNullableFilter<"Portfolio"> | Date | string | null
   status?: Prisma.Enumpublish_statusFilter<"Portfolio"> | $Enums.publish_status
@@ -302,6 +294,7 @@ export type PortfolioWhereInput = {
   updated_at?: Prisma.DateTimeFilter<"Portfolio"> | Date | string
   category?: Prisma.XOR<Prisma.CategoryNullableScalarRelationFilter, Prisma.CategoryWhereInput> | null
   tags?: Prisma.TagListRelationFilter
+  images?: Prisma.PortfolioImageListRelationFilter
   links?: Prisma.PortfolioLinkListRelationFilter
   techStacks?: Prisma.TechStackListRelationFilter
 }
@@ -312,7 +305,6 @@ export type PortfolioOrderByWithRelationInput = {
   slug?: Prisma.SortOrder
   content?: Prisma.SortOrder
   excerpt?: Prisma.SortOrderInput | Prisma.SortOrder
-  cover_image?: Prisma.SortOrderInput | Prisma.SortOrder
   start_date?: Prisma.SortOrderInput | Prisma.SortOrder
   end_date?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
@@ -324,6 +316,7 @@ export type PortfolioOrderByWithRelationInput = {
   updated_at?: Prisma.SortOrder
   category?: Prisma.CategoryOrderByWithRelationInput
   tags?: Prisma.TagOrderByRelationAggregateInput
+  images?: Prisma.PortfolioImageOrderByRelationAggregateInput
   links?: Prisma.PortfolioLinkOrderByRelationAggregateInput
   techStacks?: Prisma.TechStackOrderByRelationAggregateInput
 }
@@ -337,7 +330,6 @@ export type PortfolioWhereUniqueInput = Prisma.AtLeast<{
   title?: Prisma.StringFilter<"Portfolio"> | string
   content?: Prisma.StringFilter<"Portfolio"> | string
   excerpt?: Prisma.StringNullableFilter<"Portfolio"> | string | null
-  cover_image?: Prisma.StringNullableFilter<"Portfolio"> | string | null
   start_date?: Prisma.DateTimeNullableFilter<"Portfolio"> | Date | string | null
   end_date?: Prisma.DateTimeNullableFilter<"Portfolio"> | Date | string | null
   status?: Prisma.Enumpublish_statusFilter<"Portfolio"> | $Enums.publish_status
@@ -349,6 +341,7 @@ export type PortfolioWhereUniqueInput = Prisma.AtLeast<{
   updated_at?: Prisma.DateTimeFilter<"Portfolio"> | Date | string
   category?: Prisma.XOR<Prisma.CategoryNullableScalarRelationFilter, Prisma.CategoryWhereInput> | null
   tags?: Prisma.TagListRelationFilter
+  images?: Prisma.PortfolioImageListRelationFilter
   links?: Prisma.PortfolioLinkListRelationFilter
   techStacks?: Prisma.TechStackListRelationFilter
 }, "id" | "slug">
@@ -359,7 +352,6 @@ export type PortfolioOrderByWithAggregationInput = {
   slug?: Prisma.SortOrder
   content?: Prisma.SortOrder
   excerpt?: Prisma.SortOrderInput | Prisma.SortOrder
-  cover_image?: Prisma.SortOrderInput | Prisma.SortOrder
   start_date?: Prisma.SortOrderInput | Prisma.SortOrder
   end_date?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
@@ -385,7 +377,6 @@ export type PortfolioScalarWhereWithAggregatesInput = {
   slug?: Prisma.StringWithAggregatesFilter<"Portfolio"> | string
   content?: Prisma.StringWithAggregatesFilter<"Portfolio"> | string
   excerpt?: Prisma.StringNullableWithAggregatesFilter<"Portfolio"> | string | null
-  cover_image?: Prisma.StringNullableWithAggregatesFilter<"Portfolio"> | string | null
   start_date?: Prisma.DateTimeNullableWithAggregatesFilter<"Portfolio"> | Date | string | null
   end_date?: Prisma.DateTimeNullableWithAggregatesFilter<"Portfolio"> | Date | string | null
   status?: Prisma.Enumpublish_statusWithAggregatesFilter<"Portfolio"> | $Enums.publish_status
@@ -403,7 +394,6 @@ export type PortfolioCreateInput = {
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -414,6 +404,7 @@ export type PortfolioCreateInput = {
   updated_at?: Date | string
   category?: Prisma.CategoryCreateNestedOneWithoutPortfoliosInput
   tags?: Prisma.TagCreateNestedManyWithoutPortfoliosInput
+  images?: Prisma.PortfolioImageCreateNestedManyWithoutPortfolioInput
   links?: Prisma.PortfolioLinkCreateNestedManyWithoutPortfolioInput
   techStacks?: Prisma.TechStackCreateNestedManyWithoutPortfoliosInput
 }
@@ -424,7 +415,6 @@ export type PortfolioUncheckedCreateInput = {
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -435,6 +425,7 @@ export type PortfolioUncheckedCreateInput = {
   created_at?: Date | string
   updated_at?: Date | string
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutPortfoliosInput
+  images?: Prisma.PortfolioImageUncheckedCreateNestedManyWithoutPortfolioInput
   links?: Prisma.PortfolioLinkUncheckedCreateNestedManyWithoutPortfolioInput
   techStacks?: Prisma.TechStackUncheckedCreateNestedManyWithoutPortfoliosInput
 }
@@ -445,7 +436,6 @@ export type PortfolioUpdateInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -456,6 +446,7 @@ export type PortfolioUpdateInput = {
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   category?: Prisma.CategoryUpdateOneWithoutPortfoliosNestedInput
   tags?: Prisma.TagUpdateManyWithoutPortfoliosNestedInput
+  images?: Prisma.PortfolioImageUpdateManyWithoutPortfolioNestedInput
   links?: Prisma.PortfolioLinkUpdateManyWithoutPortfolioNestedInput
   techStacks?: Prisma.TechStackUpdateManyWithoutPortfoliosNestedInput
 }
@@ -466,7 +457,6 @@ export type PortfolioUncheckedUpdateInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -477,6 +467,7 @@ export type PortfolioUncheckedUpdateInput = {
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tags?: Prisma.TagUncheckedUpdateManyWithoutPortfoliosNestedInput
+  images?: Prisma.PortfolioImageUncheckedUpdateManyWithoutPortfolioNestedInput
   links?: Prisma.PortfolioLinkUncheckedUpdateManyWithoutPortfolioNestedInput
   techStacks?: Prisma.TechStackUncheckedUpdateManyWithoutPortfoliosNestedInput
 }
@@ -487,7 +478,6 @@ export type PortfolioCreateManyInput = {
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -505,7 +495,6 @@ export type PortfolioUpdateManyMutationInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -522,7 +511,6 @@ export type PortfolioUncheckedUpdateManyInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -550,7 +538,6 @@ export type PortfolioCountOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   content?: Prisma.SortOrder
   excerpt?: Prisma.SortOrder
-  cover_image?: Prisma.SortOrder
   start_date?: Prisma.SortOrder
   end_date?: Prisma.SortOrder
   status?: Prisma.SortOrder
@@ -573,7 +560,6 @@ export type PortfolioMaxOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   content?: Prisma.SortOrder
   excerpt?: Prisma.SortOrder
-  cover_image?: Prisma.SortOrder
   start_date?: Prisma.SortOrder
   end_date?: Prisma.SortOrder
   status?: Prisma.SortOrder
@@ -591,7 +577,6 @@ export type PortfolioMinOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   content?: Prisma.SortOrder
   excerpt?: Prisma.SortOrder
-  cover_image?: Prisma.SortOrder
   start_date?: Prisma.SortOrder
   end_date?: Prisma.SortOrder
   status?: Prisma.SortOrder
@@ -693,6 +678,20 @@ export type PortfolioUncheckedUpdateManyWithoutTagsNestedInput = {
   deleteMany?: Prisma.PortfolioScalarWhereInput | Prisma.PortfolioScalarWhereInput[]
 }
 
+export type PortfolioCreateNestedOneWithoutImagesInput = {
+  create?: Prisma.XOR<Prisma.PortfolioCreateWithoutImagesInput, Prisma.PortfolioUncheckedCreateWithoutImagesInput>
+  connectOrCreate?: Prisma.PortfolioCreateOrConnectWithoutImagesInput
+  connect?: Prisma.PortfolioWhereUniqueInput
+}
+
+export type PortfolioUpdateOneRequiredWithoutImagesNestedInput = {
+  create?: Prisma.XOR<Prisma.PortfolioCreateWithoutImagesInput, Prisma.PortfolioUncheckedCreateWithoutImagesInput>
+  connectOrCreate?: Prisma.PortfolioCreateOrConnectWithoutImagesInput
+  upsert?: Prisma.PortfolioUpsertWithoutImagesInput
+  connect?: Prisma.PortfolioWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PortfolioUpdateToOneWithWhereWithoutImagesInput, Prisma.PortfolioUpdateWithoutImagesInput>, Prisma.PortfolioUncheckedUpdateWithoutImagesInput>
+}
+
 export type PortfolioCreateNestedOneWithoutLinksInput = {
   create?: Prisma.XOR<Prisma.PortfolioCreateWithoutLinksInput, Prisma.PortfolioUncheckedCreateWithoutLinksInput>
   connectOrCreate?: Prisma.PortfolioCreateOrConnectWithoutLinksInput
@@ -751,7 +750,6 @@ export type PortfolioCreateWithoutCategoryInput = {
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -761,6 +759,7 @@ export type PortfolioCreateWithoutCategoryInput = {
   created_at?: Date | string
   updated_at?: Date | string
   tags?: Prisma.TagCreateNestedManyWithoutPortfoliosInput
+  images?: Prisma.PortfolioImageCreateNestedManyWithoutPortfolioInput
   links?: Prisma.PortfolioLinkCreateNestedManyWithoutPortfolioInput
   techStacks?: Prisma.TechStackCreateNestedManyWithoutPortfoliosInput
 }
@@ -771,7 +770,6 @@ export type PortfolioUncheckedCreateWithoutCategoryInput = {
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -781,6 +779,7 @@ export type PortfolioUncheckedCreateWithoutCategoryInput = {
   created_at?: Date | string
   updated_at?: Date | string
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutPortfoliosInput
+  images?: Prisma.PortfolioImageUncheckedCreateNestedManyWithoutPortfolioInput
   links?: Prisma.PortfolioLinkUncheckedCreateNestedManyWithoutPortfolioInput
   techStacks?: Prisma.TechStackUncheckedCreateNestedManyWithoutPortfoliosInput
 }
@@ -820,7 +819,6 @@ export type PortfolioScalarWhereInput = {
   slug?: Prisma.StringFilter<"Portfolio"> | string
   content?: Prisma.StringFilter<"Portfolio"> | string
   excerpt?: Prisma.StringNullableFilter<"Portfolio"> | string | null
-  cover_image?: Prisma.StringNullableFilter<"Portfolio"> | string | null
   start_date?: Prisma.DateTimeNullableFilter<"Portfolio"> | Date | string | null
   end_date?: Prisma.DateTimeNullableFilter<"Portfolio"> | Date | string | null
   status?: Prisma.Enumpublish_statusFilter<"Portfolio"> | $Enums.publish_status
@@ -838,7 +836,6 @@ export type PortfolioCreateWithoutTagsInput = {
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -848,6 +845,7 @@ export type PortfolioCreateWithoutTagsInput = {
   created_at?: Date | string
   updated_at?: Date | string
   category?: Prisma.CategoryCreateNestedOneWithoutPortfoliosInput
+  images?: Prisma.PortfolioImageCreateNestedManyWithoutPortfolioInput
   links?: Prisma.PortfolioLinkCreateNestedManyWithoutPortfolioInput
   techStacks?: Prisma.TechStackCreateNestedManyWithoutPortfoliosInput
 }
@@ -858,7 +856,6 @@ export type PortfolioUncheckedCreateWithoutTagsInput = {
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -868,6 +865,7 @@ export type PortfolioUncheckedCreateWithoutTagsInput = {
   published_at?: Date | string | null
   created_at?: Date | string
   updated_at?: Date | string
+  images?: Prisma.PortfolioImageUncheckedCreateNestedManyWithoutPortfolioInput
   links?: Prisma.PortfolioLinkUncheckedCreateNestedManyWithoutPortfolioInput
   techStacks?: Prisma.TechStackUncheckedCreateNestedManyWithoutPortfoliosInput
 }
@@ -893,13 +891,12 @@ export type PortfolioUpdateManyWithWhereWithoutTagsInput = {
   data: Prisma.XOR<Prisma.PortfolioUpdateManyMutationInput, Prisma.PortfolioUncheckedUpdateManyWithoutTagsInput>
 }
 
-export type PortfolioCreateWithoutLinksInput = {
+export type PortfolioCreateWithoutImagesInput = {
   id?: string
   title: string
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -910,16 +907,16 @@ export type PortfolioCreateWithoutLinksInput = {
   updated_at?: Date | string
   category?: Prisma.CategoryCreateNestedOneWithoutPortfoliosInput
   tags?: Prisma.TagCreateNestedManyWithoutPortfoliosInput
+  links?: Prisma.PortfolioLinkCreateNestedManyWithoutPortfolioInput
   techStacks?: Prisma.TechStackCreateNestedManyWithoutPortfoliosInput
 }
 
-export type PortfolioUncheckedCreateWithoutLinksInput = {
+export type PortfolioUncheckedCreateWithoutImagesInput = {
   id?: string
   title: string
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -930,6 +927,103 @@ export type PortfolioUncheckedCreateWithoutLinksInput = {
   created_at?: Date | string
   updated_at?: Date | string
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutPortfoliosInput
+  links?: Prisma.PortfolioLinkUncheckedCreateNestedManyWithoutPortfolioInput
+  techStacks?: Prisma.TechStackUncheckedCreateNestedManyWithoutPortfoliosInput
+}
+
+export type PortfolioCreateOrConnectWithoutImagesInput = {
+  where: Prisma.PortfolioWhereUniqueInput
+  create: Prisma.XOR<Prisma.PortfolioCreateWithoutImagesInput, Prisma.PortfolioUncheckedCreateWithoutImagesInput>
+}
+
+export type PortfolioUpsertWithoutImagesInput = {
+  update: Prisma.XOR<Prisma.PortfolioUpdateWithoutImagesInput, Prisma.PortfolioUncheckedUpdateWithoutImagesInput>
+  create: Prisma.XOR<Prisma.PortfolioCreateWithoutImagesInput, Prisma.PortfolioUncheckedCreateWithoutImagesInput>
+  where?: Prisma.PortfolioWhereInput
+}
+
+export type PortfolioUpdateToOneWithWhereWithoutImagesInput = {
+  where?: Prisma.PortfolioWhereInput
+  data: Prisma.XOR<Prisma.PortfolioUpdateWithoutImagesInput, Prisma.PortfolioUncheckedUpdateWithoutImagesInput>
+}
+
+export type PortfolioUpdateWithoutImagesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.StringFieldUpdateOperationsInput | string
+  excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
+  view_count?: Prisma.IntFieldUpdateOperationsInput | number
+  order?: Prisma.IntFieldUpdateOperationsInput | number
+  published_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  category?: Prisma.CategoryUpdateOneWithoutPortfoliosNestedInput
+  tags?: Prisma.TagUpdateManyWithoutPortfoliosNestedInput
+  links?: Prisma.PortfolioLinkUpdateManyWithoutPortfolioNestedInput
+  techStacks?: Prisma.TechStackUpdateManyWithoutPortfoliosNestedInput
+}
+
+export type PortfolioUncheckedUpdateWithoutImagesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.StringFieldUpdateOperationsInput | string
+  excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
+  view_count?: Prisma.IntFieldUpdateOperationsInput | number
+  order?: Prisma.IntFieldUpdateOperationsInput | number
+  category_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  published_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  tags?: Prisma.TagUncheckedUpdateManyWithoutPortfoliosNestedInput
+  links?: Prisma.PortfolioLinkUncheckedUpdateManyWithoutPortfolioNestedInput
+  techStacks?: Prisma.TechStackUncheckedUpdateManyWithoutPortfoliosNestedInput
+}
+
+export type PortfolioCreateWithoutLinksInput = {
+  id?: string
+  title: string
+  slug: string
+  content: string
+  excerpt?: string | null
+  start_date?: Date | string | null
+  end_date?: Date | string | null
+  status?: $Enums.publish_status
+  view_count?: number
+  order?: number
+  published_at?: Date | string | null
+  created_at?: Date | string
+  updated_at?: Date | string
+  category?: Prisma.CategoryCreateNestedOneWithoutPortfoliosInput
+  tags?: Prisma.TagCreateNestedManyWithoutPortfoliosInput
+  images?: Prisma.PortfolioImageCreateNestedManyWithoutPortfolioInput
+  techStacks?: Prisma.TechStackCreateNestedManyWithoutPortfoliosInput
+}
+
+export type PortfolioUncheckedCreateWithoutLinksInput = {
+  id?: string
+  title: string
+  slug: string
+  content: string
+  excerpt?: string | null
+  start_date?: Date | string | null
+  end_date?: Date | string | null
+  status?: $Enums.publish_status
+  view_count?: number
+  order?: number
+  category_id?: string | null
+  published_at?: Date | string | null
+  created_at?: Date | string
+  updated_at?: Date | string
+  tags?: Prisma.TagUncheckedCreateNestedManyWithoutPortfoliosInput
+  images?: Prisma.PortfolioImageUncheckedCreateNestedManyWithoutPortfolioInput
   techStacks?: Prisma.TechStackUncheckedCreateNestedManyWithoutPortfoliosInput
 }
 
@@ -955,7 +1049,6 @@ export type PortfolioUpdateWithoutLinksInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -966,6 +1059,7 @@ export type PortfolioUpdateWithoutLinksInput = {
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   category?: Prisma.CategoryUpdateOneWithoutPortfoliosNestedInput
   tags?: Prisma.TagUpdateManyWithoutPortfoliosNestedInput
+  images?: Prisma.PortfolioImageUpdateManyWithoutPortfolioNestedInput
   techStacks?: Prisma.TechStackUpdateManyWithoutPortfoliosNestedInput
 }
 
@@ -975,7 +1069,6 @@ export type PortfolioUncheckedUpdateWithoutLinksInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -986,6 +1079,7 @@ export type PortfolioUncheckedUpdateWithoutLinksInput = {
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tags?: Prisma.TagUncheckedUpdateManyWithoutPortfoliosNestedInput
+  images?: Prisma.PortfolioImageUncheckedUpdateManyWithoutPortfolioNestedInput
   techStacks?: Prisma.TechStackUncheckedUpdateManyWithoutPortfoliosNestedInput
 }
 
@@ -995,7 +1089,6 @@ export type PortfolioCreateWithoutTechStacksInput = {
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -1006,6 +1099,7 @@ export type PortfolioCreateWithoutTechStacksInput = {
   updated_at?: Date | string
   category?: Prisma.CategoryCreateNestedOneWithoutPortfoliosInput
   tags?: Prisma.TagCreateNestedManyWithoutPortfoliosInput
+  images?: Prisma.PortfolioImageCreateNestedManyWithoutPortfolioInput
   links?: Prisma.PortfolioLinkCreateNestedManyWithoutPortfolioInput
 }
 
@@ -1015,7 +1109,6 @@ export type PortfolioUncheckedCreateWithoutTechStacksInput = {
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -1026,6 +1119,7 @@ export type PortfolioUncheckedCreateWithoutTechStacksInput = {
   created_at?: Date | string
   updated_at?: Date | string
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutPortfoliosInput
+  images?: Prisma.PortfolioImageUncheckedCreateNestedManyWithoutPortfolioInput
   links?: Prisma.PortfolioLinkUncheckedCreateNestedManyWithoutPortfolioInput
 }
 
@@ -1056,7 +1150,6 @@ export type PortfolioCreateManyCategoryInput = {
   slug: string
   content: string
   excerpt?: string | null
-  cover_image?: string | null
   start_date?: Date | string | null
   end_date?: Date | string | null
   status?: $Enums.publish_status
@@ -1073,7 +1166,6 @@ export type PortfolioUpdateWithoutCategoryInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -1083,6 +1175,7 @@ export type PortfolioUpdateWithoutCategoryInput = {
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tags?: Prisma.TagUpdateManyWithoutPortfoliosNestedInput
+  images?: Prisma.PortfolioImageUpdateManyWithoutPortfolioNestedInput
   links?: Prisma.PortfolioLinkUpdateManyWithoutPortfolioNestedInput
   techStacks?: Prisma.TechStackUpdateManyWithoutPortfoliosNestedInput
 }
@@ -1093,7 +1186,6 @@ export type PortfolioUncheckedUpdateWithoutCategoryInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -1103,6 +1195,7 @@ export type PortfolioUncheckedUpdateWithoutCategoryInput = {
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tags?: Prisma.TagUncheckedUpdateManyWithoutPortfoliosNestedInput
+  images?: Prisma.PortfolioImageUncheckedUpdateManyWithoutPortfolioNestedInput
   links?: Prisma.PortfolioLinkUncheckedUpdateManyWithoutPortfolioNestedInput
   techStacks?: Prisma.TechStackUncheckedUpdateManyWithoutPortfoliosNestedInput
 }
@@ -1113,7 +1206,6 @@ export type PortfolioUncheckedUpdateManyWithoutCategoryInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -1130,7 +1222,6 @@ export type PortfolioUpdateWithoutTagsInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -1140,6 +1231,7 @@ export type PortfolioUpdateWithoutTagsInput = {
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   category?: Prisma.CategoryUpdateOneWithoutPortfoliosNestedInput
+  images?: Prisma.PortfolioImageUpdateManyWithoutPortfolioNestedInput
   links?: Prisma.PortfolioLinkUpdateManyWithoutPortfolioNestedInput
   techStacks?: Prisma.TechStackUpdateManyWithoutPortfoliosNestedInput
 }
@@ -1150,7 +1242,6 @@ export type PortfolioUncheckedUpdateWithoutTagsInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -1160,6 +1251,7 @@ export type PortfolioUncheckedUpdateWithoutTagsInput = {
   published_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  images?: Prisma.PortfolioImageUncheckedUpdateManyWithoutPortfolioNestedInput
   links?: Prisma.PortfolioLinkUncheckedUpdateManyWithoutPortfolioNestedInput
   techStacks?: Prisma.TechStackUncheckedUpdateManyWithoutPortfoliosNestedInput
 }
@@ -1170,7 +1262,6 @@ export type PortfolioUncheckedUpdateManyWithoutTagsInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -1188,7 +1279,6 @@ export type PortfolioUpdateWithoutTechStacksInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -1199,6 +1289,7 @@ export type PortfolioUpdateWithoutTechStacksInput = {
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   category?: Prisma.CategoryUpdateOneWithoutPortfoliosNestedInput
   tags?: Prisma.TagUpdateManyWithoutPortfoliosNestedInput
+  images?: Prisma.PortfolioImageUpdateManyWithoutPortfolioNestedInput
   links?: Prisma.PortfolioLinkUpdateManyWithoutPortfolioNestedInput
 }
 
@@ -1208,7 +1299,6 @@ export type PortfolioUncheckedUpdateWithoutTechStacksInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -1219,6 +1309,7 @@ export type PortfolioUncheckedUpdateWithoutTechStacksInput = {
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tags?: Prisma.TagUncheckedUpdateManyWithoutPortfoliosNestedInput
+  images?: Prisma.PortfolioImageUncheckedUpdateManyWithoutPortfolioNestedInput
   links?: Prisma.PortfolioLinkUncheckedUpdateManyWithoutPortfolioNestedInput
 }
 
@@ -1228,7 +1319,6 @@ export type PortfolioUncheckedUpdateManyWithoutTechStacksInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   excerpt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  cover_image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   start_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   end_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.Enumpublish_statusFieldUpdateOperationsInput | $Enums.publish_status
@@ -1247,12 +1337,14 @@ export type PortfolioUncheckedUpdateManyWithoutTechStacksInput = {
 
 export type PortfolioCountOutputType = {
   tags: number
+  images: number
   links: number
   techStacks: number
 }
 
 export type PortfolioCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tags?: boolean | PortfolioCountOutputTypeCountTagsArgs
+  images?: boolean | PortfolioCountOutputTypeCountImagesArgs
   links?: boolean | PortfolioCountOutputTypeCountLinksArgs
   techStacks?: boolean | PortfolioCountOutputTypeCountTechStacksArgs
 }
@@ -1277,6 +1369,13 @@ export type PortfolioCountOutputTypeCountTagsArgs<ExtArgs extends runtime.Types.
 /**
  * PortfolioCountOutputType without action
  */
+export type PortfolioCountOutputTypeCountImagesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PortfolioImageWhereInput
+}
+
+/**
+ * PortfolioCountOutputType without action
+ */
 export type PortfolioCountOutputTypeCountLinksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.PortfolioLinkWhereInput
 }
@@ -1295,7 +1394,6 @@ export type PortfolioSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   slug?: boolean
   content?: boolean
   excerpt?: boolean
-  cover_image?: boolean
   start_date?: boolean
   end_date?: boolean
   status?: boolean
@@ -1307,6 +1405,7 @@ export type PortfolioSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   updated_at?: boolean
   category?: boolean | Prisma.Portfolio$categoryArgs<ExtArgs>
   tags?: boolean | Prisma.Portfolio$tagsArgs<ExtArgs>
+  images?: boolean | Prisma.Portfolio$imagesArgs<ExtArgs>
   links?: boolean | Prisma.Portfolio$linksArgs<ExtArgs>
   techStacks?: boolean | Prisma.Portfolio$techStacksArgs<ExtArgs>
   _count?: boolean | Prisma.PortfolioCountOutputTypeDefaultArgs<ExtArgs>
@@ -1318,7 +1417,6 @@ export type PortfolioSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   slug?: boolean
   content?: boolean
   excerpt?: boolean
-  cover_image?: boolean
   start_date?: boolean
   end_date?: boolean
   status?: boolean
@@ -1337,7 +1435,6 @@ export type PortfolioSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   slug?: boolean
   content?: boolean
   excerpt?: boolean
-  cover_image?: boolean
   start_date?: boolean
   end_date?: boolean
   status?: boolean
@@ -1356,7 +1453,6 @@ export type PortfolioSelectScalar = {
   slug?: boolean
   content?: boolean
   excerpt?: boolean
-  cover_image?: boolean
   start_date?: boolean
   end_date?: boolean
   status?: boolean
@@ -1368,10 +1464,11 @@ export type PortfolioSelectScalar = {
   updated_at?: boolean
 }
 
-export type PortfolioOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "slug" | "content" | "excerpt" | "cover_image" | "start_date" | "end_date" | "status" | "view_count" | "order" | "category_id" | "published_at" | "created_at" | "updated_at", ExtArgs["result"]["portfolio"]>
+export type PortfolioOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "slug" | "content" | "excerpt" | "start_date" | "end_date" | "status" | "view_count" | "order" | "category_id" | "published_at" | "created_at" | "updated_at", ExtArgs["result"]["portfolio"]>
 export type PortfolioInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   category?: boolean | Prisma.Portfolio$categoryArgs<ExtArgs>
   tags?: boolean | Prisma.Portfolio$tagsArgs<ExtArgs>
+  images?: boolean | Prisma.Portfolio$imagesArgs<ExtArgs>
   links?: boolean | Prisma.Portfolio$linksArgs<ExtArgs>
   techStacks?: boolean | Prisma.Portfolio$techStacksArgs<ExtArgs>
   _count?: boolean | Prisma.PortfolioCountOutputTypeDefaultArgs<ExtArgs>
@@ -1388,6 +1485,7 @@ export type $PortfolioPayload<ExtArgs extends runtime.Types.Extensions.InternalA
   objects: {
     category: Prisma.$CategoryPayload<ExtArgs> | null
     tags: Prisma.$TagPayload<ExtArgs>[]
+    images: Prisma.$PortfolioImagePayload<ExtArgs>[]
     links: Prisma.$PortfolioLinkPayload<ExtArgs>[]
     techStacks: Prisma.$TechStackPayload<ExtArgs>[]
   }
@@ -1397,7 +1495,6 @@ export type $PortfolioPayload<ExtArgs extends runtime.Types.Extensions.InternalA
     slug: string
     content: string
     excerpt: string | null
-    cover_image: string | null
     start_date: Date | null
     end_date: Date | null
     status: $Enums.publish_status
@@ -1803,6 +1900,7 @@ export interface Prisma__PortfolioClient<T, Null = never, ExtArgs extends runtim
   readonly [Symbol.toStringTag]: "PrismaPromise"
   category<T extends Prisma.Portfolio$categoryArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Portfolio$categoryArgs<ExtArgs>>): Prisma.Prisma__CategoryClient<runtime.Types.Result.GetResult<Prisma.$CategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   tags<T extends Prisma.Portfolio$tagsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Portfolio$tagsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TagPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  images<T extends Prisma.Portfolio$imagesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Portfolio$imagesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PortfolioImagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   links<T extends Prisma.Portfolio$linksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Portfolio$linksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PortfolioLinkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   techStacks<T extends Prisma.Portfolio$techStacksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Portfolio$techStacksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TechStackPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
@@ -1839,7 +1937,6 @@ export interface PortfolioFieldRefs {
   readonly slug: Prisma.FieldRef<"Portfolio", 'String'>
   readonly content: Prisma.FieldRef<"Portfolio", 'String'>
   readonly excerpt: Prisma.FieldRef<"Portfolio", 'String'>
-  readonly cover_image: Prisma.FieldRef<"Portfolio", 'String'>
   readonly start_date: Prisma.FieldRef<"Portfolio", 'DateTime'>
   readonly end_date: Prisma.FieldRef<"Portfolio", 'DateTime'>
   readonly status: Prisma.FieldRef<"Portfolio", 'publish_status'>
@@ -2285,6 +2382,30 @@ export type Portfolio$tagsArgs<ExtArgs extends runtime.Types.Extensions.Internal
   take?: number
   skip?: number
   distinct?: Prisma.TagScalarFieldEnum | Prisma.TagScalarFieldEnum[]
+}
+
+/**
+ * Portfolio.images
+ */
+export type Portfolio$imagesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PortfolioImage
+   */
+  select?: Prisma.PortfolioImageSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PortfolioImage
+   */
+  omit?: Prisma.PortfolioImageOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PortfolioImageInclude<ExtArgs> | null
+  where?: Prisma.PortfolioImageWhereInput
+  orderBy?: Prisma.PortfolioImageOrderByWithRelationInput | Prisma.PortfolioImageOrderByWithRelationInput[]
+  cursor?: Prisma.PortfolioImageWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PortfolioImageScalarFieldEnum | Prisma.PortfolioImageScalarFieldEnum[]
 }
 
 /**

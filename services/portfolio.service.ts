@@ -13,7 +13,6 @@ export interface CreatePortfolioInput {
   title: string;
   content: string;
   excerpt?: string;
-  cover_image?: string;
   start_date?: Date;
   end_date?: Date | null;
   status: "DRAFT" | "PUBLISHED" | "SCHEDULED";
@@ -21,6 +20,7 @@ export interface CreatePortfolioInput {
   category_id?: string | null;
   tag_ids?: string[];
   tech_stack_ids?: string[];
+  images?: { url: string; order: number }[];
   links?: { type: string; url: string; label?: string; order: number }[];
   published_at?: Date;
 }
@@ -29,7 +29,6 @@ export interface UpdatePortfolioInput {
   title?: string;
   content?: string;
   excerpt?: string;
-  cover_image?: string;
   start_date?: Date;
   end_date?: Date | null;
   status?: "DRAFT" | "PUBLISHED" | "SCHEDULED";
@@ -37,6 +36,7 @@ export interface UpdatePortfolioInput {
   category_id?: string | null;
   tag_ids?: string[];
   tech_stack_ids?: string[];
+  images?: { url: string; order: number }[];
   links?: { type: string; url: string; label?: string; order: number }[];
   published_at?: Date;
 }
@@ -46,7 +46,6 @@ export const portfolioListSelect = {
   title: true,
   slug: true,
   excerpt: true,
-  cover_image: true,
   start_date: true,
   end_date: true,
   status: true,
@@ -73,6 +72,14 @@ export const portfolioListSelect = {
       name: true,
       category: true,
     },
+  },
+  images: {
+    select: {
+      id: true,
+      url: true,
+      order: true,
+    },
+    orderBy: { order: "asc" as const },
   },
 } as const;
 
@@ -110,7 +117,6 @@ export async function createPortfolio(input: CreatePortfolioInput) {
       slug,
       content: input.content,
       excerpt: input.excerpt,
-      cover_image: input.cover_image,
       start_date: input.start_date,
       end_date: input.end_date,
       status: input.status,
@@ -125,6 +131,14 @@ export async function createPortfolio(input: CreatePortfolioInput) {
       ...(input.tech_stack_ids && {
         techStacks: {
           connect: input.tech_stack_ids.map((id) => ({ id })),
+        },
+      }),
+      ...(input.images && {
+        images: {
+          create: input.images.map((img, index) => ({
+            url: img.url,
+            order: img.order ?? index,
+          })),
         },
       }),
       ...(input.links && {
@@ -171,7 +185,6 @@ export async function updatePortfolio(id: string, input: UpdatePortfolioInput) {
     ...(newSlug && { slug: newSlug }),
     ...(input.content && { content: input.content }),
     ...(input.excerpt !== undefined && { excerpt: input.excerpt }),
-    ...(input.cover_image !== undefined && { cover_image: input.cover_image }),
     ...(input.start_date !== undefined && { start_date: input.start_date }),
     ...(input.end_date !== undefined && { end_date: input.end_date }),
     ...(input.status && { status: input.status }),
@@ -188,6 +201,14 @@ export async function updatePortfolio(id: string, input: UpdatePortfolioInput) {
         set: input.tech_stack_ids.map((techId) => ({ id: techId })),
       },
     }),
+    ...(input.images && {
+      images: {
+        create: input.images.map((img, index) => ({
+          url: img.url,
+          order: img.order ?? index,
+        })),
+      },
+    }),
     ...(input.links && {
       links: {
         create: input.links.map((link, index) => ({
@@ -200,13 +221,19 @@ export async function updatePortfolio(id: string, input: UpdatePortfolioInput) {
     }),
   };
 
-  // 링크 업데이트 시 deleteMany + update를 트랜잭션으로 묶어 데이터 정합성 보장
-  if (input.links !== undefined) {
-    const [, updated] = await prisma.$transaction([
-      prisma.portfolioLink.deleteMany({ where: { portfolio_id: id } }),
+  const needsTransaction = input.images !== undefined || input.links !== undefined;
+
+  if (needsTransaction) {
+    const deleteOps = [
+      ...(input.images !== undefined ? [prisma.portfolioImage.deleteMany({ where: { portfolio_id: id } })] : []),
+      ...(input.links !== undefined ? [prisma.portfolioLink.deleteMany({ where: { portfolio_id: id } })] : []),
+    ];
+
+    const results = await prisma.$transaction([
+      ...deleteOps,
       prisma.portfolio.update({ where: { id }, data: updateData, select: portfolioDetailSelect }),
     ]);
-    return updated;
+    return results[results.length - 1];
   }
 
   return prisma.portfolio.update({
