@@ -70,15 +70,13 @@ SELECT count(*) FROM public.comments;
 
 ## 배포 (코드 업데이트)
 
+### 스키마 변경 시
+
 ```bash
-cd /var/www/api
-git pull origin main
-npm ci
-npx prisma generate
-npx prisma migrate deploy            # 스키마 변경 시에만
-npm run build
-pm2 restart blog-api
+cd /var/www/api && git pull origin main && npm ci && npx prisma generate && npx prisma migrate deploy && npm run build && pm2 restart blog-api
 ```
+
+### 코드만 변경 시
 
 ```bash
 cd /var/www/api && git pull origin main && npm ci && npx prisma generate && npm run build && pm2 restart blog-api
