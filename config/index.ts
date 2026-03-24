@@ -2,7 +2,8 @@ import * as dotenv from "dotenv";
 import type { Config } from "@/types/environment.js";
 import { REQUIRED_ENV_VARS } from "@/types/environment.js";
 
-dotenv.config();
+dotenv.config({ path: ".env.local", override: true }); // 로컬 전용 설정 우선
+dotenv.config(); // 나머지 폴백
 
 // 필수 환경 변수 검증
 const missingVars = REQUIRED_ENV_VARS.filter((varName) => !process.env[varName]);
