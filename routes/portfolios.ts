@@ -37,6 +37,7 @@ const createPortfolioSchema = z.object({
   title: z.string().min(1, "제목은 필수입니다.").max(200, "제목은 200자 이하여야 합니다."),
   content: z.string().min(1, "내용은 필수입니다."),
   excerpt: z.string().max(500, "요약은 500자 이하여야 합니다.").optional(),
+  summary: z.array(z.string()).max(3).optional(),
   start_date: z.coerce.date().optional(),
   end_date: z.coerce.date().nullable().optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "SCHEDULED"]).default("DRAFT"),

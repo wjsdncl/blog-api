@@ -13,6 +13,7 @@ export interface CreatePortfolioInput {
   title: string;
   content: string;
   excerpt?: string;
+  summary?: string[];
   start_date?: Date;
   end_date?: Date | null;
   status: "DRAFT" | "PUBLISHED" | "SCHEDULED";
@@ -29,6 +30,7 @@ export interface UpdatePortfolioInput {
   title?: string;
   content?: string;
   excerpt?: string;
+  summary?: string[];
   start_date?: Date;
   end_date?: Date | null;
   status?: "DRAFT" | "PUBLISHED" | "SCHEDULED";
@@ -46,6 +48,7 @@ export const portfolioListSelect = {
   title: true,
   slug: true,
   excerpt: true,
+  summary: true,
   start_date: true,
   end_date: true,
   status: true,
@@ -117,6 +120,7 @@ export async function createPortfolio(input: CreatePortfolioInput) {
       slug,
       content: input.content,
       excerpt: input.excerpt,
+      summary: input.summary ?? [],
       start_date: input.start_date,
       end_date: input.end_date,
       status: input.status,
@@ -185,6 +189,7 @@ export async function updatePortfolio(id: string, input: UpdatePortfolioInput) {
     ...(newSlug && { slug: newSlug }),
     ...(input.content && { content: input.content }),
     ...(input.excerpt !== undefined && { excerpt: input.excerpt }),
+    ...(input.summary !== undefined && { summary: input.summary }),
     ...(input.start_date !== undefined && { start_date: input.start_date }),
     ...(input.end_date !== undefined && { end_date: input.end_date }),
     ...(input.status && { status: input.status }),

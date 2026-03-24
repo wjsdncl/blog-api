@@ -197,6 +197,7 @@ model Portfolio {
   slug         String        @unique // URL 경로
   content      String        @db.Text // 프로젝트 상세 설명
   excerpt      String?       @db.Text // 짧은 요약
+  summary      String[]      @default([]) // AI 생성 3줄 요약
   start_date   DateTime? // 시작일
   end_date     DateTime? // 종료일 (NULL=진행중)
   status       publish_status @default(DRAFT) // 포트폴리오 상태

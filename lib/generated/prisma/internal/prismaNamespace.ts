@@ -1450,6 +1450,7 @@ export const PortfolioScalarFieldEnum = {
   slug: 'slug',
   content: 'content',
   excerpt: 'excerpt',
+  summary: 'summary',
   start_date: 'start_date',
   end_date: 'end_date',
   status: 'status',

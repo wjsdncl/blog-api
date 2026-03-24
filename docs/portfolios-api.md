@@ -6,8 +6,9 @@
 
 - 포트폴리오는 개인 프로젝트를 소개하는 콘텐츠
 - OWNER만 생성/수정/삭제 가능
-- 기술 스택, 태그, 링크 연결 지원
+- 기술 스택, 태그, 링크, 이미지 연결 지원
 - 슬러그는 제목에서 자동 생성
+- 발행(PUBLISHED) 시 AI 3줄 요약 자동 생성 (프론트엔드 토글로 on/off)
 
 ---
 
@@ -54,7 +55,7 @@ Query Parameters:
       "title": "개인 블로그",
       "slug": "개인-블로그",
       "excerpt": "Next.js로 만든 개인 블로그",
-      "cover_image": "https://...",
+      "summary": ["Next.js와 TypeScript로 구축한 개인 블로그 프로젝트입니다.", "..."],
       "start_date": "2024-01-01",
       "end_date": null,
       "status": "PUBLISHED",
@@ -67,6 +68,9 @@ Query Parameters:
       "techStacks": [
         { "id": "uuid", "name": "React", "category": "Frontend" },
         { "id": "uuid", "name": "TypeScript", "category": "Language" }
+      ],
+      "images": [
+        { "id": "uuid", "url": "https://...", "order": 0 }
       ]
     }
   ],
@@ -86,7 +90,7 @@ Query Parameters:
     "slug": "개인-블로그",
     "content": "# 프로젝트 상세 내용...",
     "excerpt": "Next.js로 만든 개인 블로그",
-    "cover_image": "https://...",
+    "summary": ["Next.js와 TypeScript로 구축한 개인 블로그 프로젝트입니다.", "..."],
     "start_date": "2024-01-01",
     "end_date": null,
     "status": "PUBLISHED",
@@ -98,6 +102,9 @@ Query Parameters:
     "category": { ... },
     "tags": [ ... ],
     "techStacks": [ ... ],
+    "images": [
+      { "id": "uuid", "url": "https://...", "order": 0 }
+    ],
     "links": [
       { "id": "uuid", "type": "github", "url": "https://github.com/...", "label": "GitHub", "order": 0 },
       { "id": "uuid", "type": "live", "url": "https://...", "label": "Live Demo", "order": 1 }
@@ -114,7 +121,7 @@ Query Parameters:
   "title": "새 프로젝트",           // 필수, 1-200자
   "content": "프로젝트 상세 설명",   // 필수
   "excerpt": "짧은 소개",           // 선택, max 500자
-  "cover_image": "https://...",     // 선택, URL
+  "summary": ["문장1.", "문장2.", "문장3."],  // 선택, max 3개 (AI 생성)
   "start_date": "2024-01-01",       // 선택
   "end_date": null,                 // 선택, null=진행중
   "status": "DRAFT",                // 선택, default: DRAFT
@@ -122,6 +129,12 @@ Query Parameters:
   "category_id": "uuid",            // 선택
   "tag_ids": ["uuid"],              // 선택, max 10개
   "tech_stack_ids": ["uuid"],       // 선택, max 20개
+  "images": [                       // 선택, max 10개
+    {
+      "url": "https://...",         // 필수, URL
+      "order": 0                    // 선택
+    }
+  ],
   "links": [                        // 선택, max 10개
     {
       "type": "github",             // 필수
@@ -144,6 +157,7 @@ Query Parameters:
 ### PATCH /portfolios/:id (OWNER)
 
 모든 필드 선택적 업데이트 가능
+- `images` 업데이트 시 기존 이미지 전체 교체
 - `links` 업데이트 시 기존 링크 전체 교체
 
 ```json
@@ -214,7 +228,9 @@ Query Parameters:
 | title | 1-200자, 필수 |
 | content | 필수 |
 | excerpt | max 500자 |
-| cover_image | 유효한 URL |
+| summary | string 배열, max 3개 |
+| images | max 10개 |
+| images[].url | 유효한 URL, 필수 |
 | tag_ids | max 10개 |
 | tech_stack_ids | max 20개 |
 | links | max 10개 |
@@ -230,9 +246,20 @@ Query Parameters:
 // 포트폴리오 카드 컴포넌트
 const PortfolioCard = ({ portfolio }) => (
   <div>
-    <img src={portfolio.cover_image} alt={portfolio.title} />
+    {portfolio.images[0] && (
+      <img src={portfolio.images[0].url} alt={portfolio.title} />
+    )}
     <h3>{portfolio.title}</h3>
     <p>{portfolio.excerpt}</p>
+
+    {/* AI 3줄 요약 */}
+    {portfolio.summary.length > 0 && (
+      <ul>
+        {portfolio.summary.map((sentence, i) => (
+          <li key={i}>{sentence}</li>
+        ))}
+      </ul>
+    )}
 
     {/* 기술 스택 뱃지 */}
     <div className="flex gap-1">
