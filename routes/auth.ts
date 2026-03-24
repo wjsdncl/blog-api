@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prismaClient.js";
 import { generateTokens, verifyRefreshToken, verifyAccessToken } from "@/utils/auth.js";
 import { config } from "@/config/index.js";
 import { logger } from "@/utils/logger.js";
-import { AppError, BadRequestError, UnauthorizedError, ForbiddenError } from "@/lib/errors.js";
+import { AppError, BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError } from "@/lib/errors.js";
 
 // Services
 import { getOAuthService, getSupportedProviders } from "@/services/oauth/index.js";
@@ -343,6 +343,60 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
     },
   });
+  /**
+   * POST /auth/dev-login
+   * 개발 환경 전용 즉시 로그인 (production에서는 등록되지 않음)
+   */
+  if (config.nodeEnv !== "production") {
+    const devLoginSchema = z.object({
+      role: z.enum(["OWNER", "USER"]).default("OWNER"),
+    });
+
+    fastify.post("/dev-login", {
+      schema: {
+        tags: ["Auth"],
+        summary: "[DEV] 개발용 즉시 로그인",
+        description: "개발 환경 전용. 지정한 role의 첫 번째 활성 유저로 즉시 로그인합니다.",
+        body: zodToJsonSchema(devLoginSchema),
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              data: {
+                type: "object",
+                properties: {
+                  userId: { type: "string" },
+                  role: { type: "string" },
+                  username: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+      },
+      handler: async (request: FastifyRequest, reply: FastifyReply) => {
+        const { role } = devLoginSchema.parse(request.body);
+
+        const user = await prisma.user.findFirst({
+          where: { role, is_active: true },
+          select: { id: true, email: true, role: true, username: true },
+        });
+
+        if (!user) {
+          throw new NotFoundError(`활성 ${role} 유저`);
+        }
+
+        const tokens = generateTokens(user.id, user.email);
+        setAuthCookies(reply, tokens.accessToken, tokens.refreshToken);
+
+        return reply.send({
+          success: true,
+          data: { userId: user.id, role: user.role, username: user.username },
+        });
+      },
+    });
+  }
 };
 
 export default authRoutes;
