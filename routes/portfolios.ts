@@ -9,7 +9,7 @@ import { optionalAuthenticate, requireOwner } from "@/middleware/auth.js";
 import { NotFoundError } from "@/lib/errors.js";
 import { portfolioIdParamsSchema, slugParamsSchema } from "@/utils/schemas.js";
 import { buildStatusFilter, assertPublicAccess, incrementViewCount, buildPaginationMeta } from "@/utils/prismaHelpers.js";
-import { createPortfolio, updatePortfolio, deletePortfolio, portfolioListSelect, portfolioDetailSelect } from "@/services/portfolio.service.js";
+import { createPortfolio, updatePortfolio, deletePortfolio, reorderPortfolios, portfolioListSelect, portfolioDetailSelect } from "@/services/portfolio.service.js";
 import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
 const portfolioListQuerySchema = z.object({
@@ -203,6 +203,54 @@ const portfoliosRoutes: FastifyPluginAsync = async (fastify) => {
         success: true,
         data: portfolio,
         message: "포트폴리오가 생성되었습니다.",
+      });
+    },
+  });
+
+  /**
+   * PATCH /portfolios/reorder
+   * 포트폴리오 순서 일괄 변경 (OWNER 전용)
+   */
+  const reorderSchema = z.object({
+    items: z
+      .array(
+        z.object({
+          id: z.string().uuid(),
+          order: z.number().int().min(0),
+        })
+      )
+      .min(1, "최소 1개 항목이 필요합니다."),
+  });
+
+  fastify.patch("/reorder", {
+    schema: {
+      tags: ["Portfolios"],
+      summary: "포트폴리오 순서 일괄 변경",
+      description: "포트폴리오 순서를 일괄 변경합니다. OWNER 권한이 필요합니다.",
+      security: [{ bearerAuth: [] }],
+      body: zodToJsonSchema(reorderSchema),
+      response: {
+        200: {
+          description: "순서 변경 성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            message: { type: "string" },
+          },
+        },
+        400: { type: "object", properties: { success: { type: "boolean" }, error: { type: "string" } } },
+        401: { type: "object", properties: { success: { type: "boolean" }, error: { type: "string" } } },
+        403: { type: "object", properties: { success: { type: "boolean" }, error: { type: "string" } } },
+      },
+    },
+    preHandler: requireOwner,
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const { items } = reorderSchema.parse(request.body);
+      await reorderPortfolios(items);
+
+      return reply.send({
+        success: true,
+        message: "순서가 변경되었습니다.",
       });
     },
   });

@@ -249,6 +249,21 @@ export async function updatePortfolio(id: string, input: UpdatePortfolioInput) {
 }
 
 /**
+ * 포트폴리오 순서 일괄 변경
+ * 트랜잭션으로 전체 성공/실패 보장
+ */
+export async function reorderPortfolios(items: { id: string; order: number }[]) {
+  await prisma.$transaction(
+    items.map(({ id, order }) =>
+      prisma.portfolio.update({
+        where: { id },
+        data: { order },
+      })
+    )
+  );
+}
+
+/**
  * 포트폴리오 삭제
  * CASCADE로 링크도 함께 삭제됨
  */
