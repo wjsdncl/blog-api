@@ -13,6 +13,19 @@ ssh -i "<SSH_KEY_PATH>" ubuntu@<SERVER_IP>
 
 ---
 
+## SSH 터널 (로컬에서 프로덕션 DB 접근)
+
+```bash
+ssh -i "<SSH_KEY_PATH>" -L 5433:localhost:5432 -N ubuntu@<SERVER_IP>
+```
+
+- `-L 5433:localhost:5432`: 로컬 5433 → 서버 내부 5432 포워딩
+- `-N`: 셸 없이 터널만 유지 (출력 없이 대기하는 게 정상)
+- 로컬 5432는 로컬 PostgreSQL이 사용 중이므로 5433 사용
+- 접속 확인: `psql -h localhost -p 5433 -U blog_user -d blog_prod`
+
+---
+
 ## PM2 (앱 프로세스 관리)
 
 ```bash
