@@ -20,16 +20,7 @@ export interface CreatePostInput {
   published_at?: Date;
 }
 
-export interface UpdatePostInput {
-  title?: string;
-  content?: string;
-  excerpt?: string;
-  cover_image?: string | null;
-  status?: "DRAFT" | "PUBLISHED" | "SCHEDULED";
-  category_id?: string | null;
-  tag_ids?: string[];
-  published_at?: Date;
-}
+export type UpdatePostInput = Partial<CreatePostInput>;
 
 export const postListSelect = {
   id: true,
@@ -155,12 +146,12 @@ export async function updatePost(id: string, input: UpdatePostInput) {
     const updated = await tx.post.update({
       where: { id },
       data: {
-        ...(input.title && { title: input.title }),
+        ...(input.title !== undefined && { title: input.title }),
         ...(newSlug && { slug: newSlug }),
-        ...(input.content && { content: input.content }),
+        ...(input.content !== undefined && { content: input.content }),
         ...(input.excerpt !== undefined && { excerpt: input.excerpt }),
         ...(input.cover_image !== undefined && { cover_image: input.cover_image }),
-        ...(input.status && { status: input.status }),
+        ...(input.status !== undefined && { status: input.status }),
         ...(input.category_id !== undefined && { category_id: input.category_id }),
         ...(publishedAt && { published_at: publishedAt }),
         ...(input.tag_ids && {

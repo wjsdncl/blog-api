@@ -26,22 +26,7 @@ export interface CreatePortfolioInput {
   published_at?: Date;
 }
 
-export interface UpdatePortfolioInput {
-  title?: string;
-  content?: string;
-  excerpt?: string;
-  summary?: string[];
-  start_date?: Date;
-  end_date?: Date | null;
-  status?: "DRAFT" | "PUBLISHED" | "SCHEDULED";
-  order?: number;
-  category_id?: string | null;
-  tag_ids?: string[];
-  tech_stack_ids?: string[];
-  images?: { url: string; order: number }[];
-  links?: { type: string; url: string; label?: string; order: number }[];
-  published_at?: Date;
-}
+export type UpdatePortfolioInput = Partial<CreatePortfolioInput>;
 
 export const portfolioListSelect = {
   id: true,
@@ -84,12 +69,6 @@ export const portfolioListSelect = {
     },
     orderBy: { order: "asc" as const },
   },
-} as const;
-
-export const portfolioDetailSelect = {
-  ...portfolioListSelect,
-  content: true,
-  updated_at: true,
   links: {
     select: {
       id: true,
@@ -100,6 +79,12 @@ export const portfolioDetailSelect = {
     },
     orderBy: { order: "asc" as const },
   },
+} as const;
+
+export const portfolioDetailSelect = {
+  ...portfolioListSelect,
+  content: true,
+  updated_at: true,
 } as const;
 
 /**
@@ -185,14 +170,14 @@ export async function updatePortfolio(id: string, input: UpdatePortfolioInput) {
   const publishedAt = calculatePublishedAt(input.status, input.published_at, portfolio.status);
 
   const updateData = {
-    ...(input.title && { title: input.title }),
+    ...(input.title !== undefined && { title: input.title }),
     ...(newSlug && { slug: newSlug }),
-    ...(input.content && { content: input.content }),
+    ...(input.content !== undefined && { content: input.content }),
     ...(input.excerpt !== undefined && { excerpt: input.excerpt }),
     ...(input.summary !== undefined && { summary: input.summary }),
     ...(input.start_date !== undefined && { start_date: input.start_date }),
     ...(input.end_date !== undefined && { end_date: input.end_date }),
-    ...(input.status && { status: input.status }),
+    ...(input.status !== undefined && { status: input.status }),
     ...(input.order !== undefined && { order: input.order }),
     ...(input.category_id !== undefined && { category_id: input.category_id }),
     ...(publishedAt && { published_at: publishedAt }),
@@ -229,16 +214,12 @@ export async function updatePortfolio(id: string, input: UpdatePortfolioInput) {
   const needsTransaction = input.images !== undefined || input.links !== undefined;
 
   if (needsTransaction) {
-    const deleteOps = [
-      ...(input.images !== undefined ? [prisma.portfolioImage.deleteMany({ where: { portfolio_id: id } })] : []),
-      ...(input.links !== undefined ? [prisma.portfolioLink.deleteMany({ where: { portfolio_id: id } })] : []),
-    ];
-
-    const results = await prisma.$transaction([
-      ...deleteOps,
+    const [, , updated] = await prisma.$transaction([
+      prisma.portfolioImage.deleteMany({ where: { portfolio_id: id } }),
+      prisma.portfolioLink.deleteMany({ where: { portfolio_id: id } }),
       prisma.portfolio.update({ where: { id }, data: updateData, select: portfolioDetailSelect }),
     ]);
-    return results[results.length - 1];
+    return updated;
   }
 
   return prisma.portfolio.update({
@@ -258,8 +239,8 @@ export async function reorderPortfolios(items: { id: string; order: number }[]) 
       prisma.portfolio.update({
         where: { id },
         data: { order },
-      })
-    )
+      }),
+    ),
   );
 }
 
