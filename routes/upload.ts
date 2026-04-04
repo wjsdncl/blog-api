@@ -3,7 +3,7 @@
  * 이미지 업로드 (Supabase Storage)
  */
 import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
-import { requiredAuthenticate } from "@/middleware/auth.js";
+import { requiredAuthenticate, requireOwner } from "@/middleware/auth.js";
 import { BadRequestError } from "@/lib/errors.js";
 import { supabase } from "@/lib/supabase.js";
 import { processImage } from "@/utils/imageOptimizer.js";
@@ -12,7 +12,81 @@ const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const BUCKET_NAME = "images";
 
+const IMAGE_MIME_PREFIXES = ["image/"];
+const STORAGE_FOLDERS = ["", "posts"];
+
 const uploadRoutes: FastifyPluginAsync = async (fastify) => {
+  // GET /storage - Storage 이미지 목록 조회
+  fastify.get("/storage", {
+    schema: {
+      tags: ["Upload"],
+      summary: "Storage 이미지 목록 조회",
+      description: "Supabase Storage에 저장된 이미지 목록을 반환합니다.",
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          description: "조회 성공",
+          type: "object",
+          properties: {
+            success: { type: "boolean", example: true },
+            data: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  url: { type: "string", format: "uri" },
+                  size: { type: "number" },
+                  createdAt: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        401: { $ref: "ErrorResponse" },
+        403: { $ref: "ErrorResponse" },
+      },
+    },
+    preHandler: requireOwner,
+  }, async (_request, reply) => {
+    const allImages: Array<{ name: string; url: string; size: number; createdAt: string }> = [];
+
+    for (const folder of STORAGE_FOLDERS) {
+      const { data, error } = await supabase.storage
+        .from(BUCKET_NAME)
+        .list(folder || undefined, {
+          limit: 500,
+          sortBy: { column: "created_at", order: "desc" },
+        });
+
+      if (error || !data) continue;
+
+      for (const file of data) {
+        if (!file.metadata?.mimetype) continue;
+        const isImage = IMAGE_MIME_PREFIXES.some((prefix) =>
+          (file.metadata.mimetype as string).startsWith(prefix)
+        );
+        if (!isImage) continue;
+
+        const filePath = folder ? `${folder}/${file.name}` : file.name;
+        const { data: publicUrlData } = supabase.storage
+          .from(BUCKET_NAME)
+          .getPublicUrl(filePath);
+
+        allImages.push({
+          name: filePath,
+          url: publicUrlData.publicUrl,
+          size: file.metadata.size as number,
+          createdAt: file.created_at,
+        });
+      }
+    }
+
+    allImages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return reply.send({ success: true, data: allImages });
+  });
+
   // POST / - 이미지 업로드
   fastify.post("/", {
     schema: {
