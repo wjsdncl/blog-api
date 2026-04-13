@@ -99,8 +99,11 @@ export function zodToJsonSchema(schema: ZodType): JsonSchema {
       };
     }
 
-    case ZodFirstPartyTypeKind.ZodOptional:
-      return zodToJsonSchema(def.innerType);
+    case ZodFirstPartyTypeKind.ZodOptional: {
+      const inner = zodToJsonSchema(def.innerType);
+      delete inner.default;
+      return inner;
+    }
 
     case ZodFirstPartyTypeKind.ZodNullable: {
       const inner = zodToJsonSchema(def.innerType);
