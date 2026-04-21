@@ -198,19 +198,17 @@ export async function updateComment(id: string, content: string, userId: string)
           commentLikes: true,
         },
       },
-    },
-  });
-
-  // 사용자의 좋아요 여부 확인
-  const userLike = await prisma.commentLike.findUnique({
-    where: {
-      user_id_comment_id: { user_id: userId, comment_id: id },
+      commentLikes: {
+        where: { user_id: userId },
+        select: { id: true },
+      },
     },
   });
 
   return {
     ...updated,
     like_count: updated._count.commentLikes,
-    is_liked: !!userLike,
+    is_liked: updated.commentLikes.length > 0,
+    commentLikes: undefined,
   };
 }

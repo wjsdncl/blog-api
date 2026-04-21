@@ -16,10 +16,17 @@ const IMAGE_MIME_PREFIXES = ["image/"];
 const STORAGE_FOLDERS = ["", "posts"];
 
 const STORAGE_PAGE_SIZE = 20;
+const CACHE_TTL_MS = 30_000; // 30초
 
-// 모든 Storage 이미지를 한 번에 조회하여 캐시
-async function fetchAllStorageImages(): Promise<Array<{ name: string; url: string; size: number; createdAt: string }>> {
-  const allImages: Array<{ name: string; url: string; size: number; createdAt: string }> = [];
+type StorageImage = { name: string; url: string; size: number; createdAt: string };
+let imageCache: { data: StorageImage[]; expiresAt: number } | null = null;
+
+async function fetchAllStorageImages(): Promise<StorageImage[]> {
+  if (imageCache && Date.now() < imageCache.expiresAt) {
+    return imageCache.data;
+  }
+
+  const allImages: StorageImage[] = [];
 
   for (const folder of STORAGE_FOLDERS) {
     const { data, error } = await supabase.storage
@@ -53,6 +60,7 @@ async function fetchAllStorageImages(): Promise<Array<{ name: string; url: strin
   }
 
   allImages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  imageCache = { data: allImages, expiresAt: Date.now() + CACHE_TTL_MS };
   return allImages;
 }
 
@@ -170,6 +178,8 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     const { data: publicUrlData } = supabase.storage
       .from(BUCKET_NAME)
       .getPublicUrl(filePath);
+
+    imageCache = null;
 
     return reply.send({
       success: true,
