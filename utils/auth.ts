@@ -14,10 +14,12 @@ if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
   throw new Error("JWT secrets are required in environment variables");
 }
 
-export function generateTokens(userId: string, email: string): TokenPair {
+export function generateTokens(userId: string, email: string, role: string, username: string): TokenPair {
   const payload: Omit<JwtPayload, "iat" | "exp"> = {
     userId,
     email,
+    role,
+    username,
   };
 
   const accessToken = jwt.sign(

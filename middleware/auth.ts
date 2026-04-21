@@ -10,7 +10,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { verifyAccessToken, verifyRefreshToken, generateTokens } from "@/utils/auth.js";
 import { setAuthCookies } from "@/services/auth.service.js";
-import { prisma } from "@/lib/prismaClient.js";
 import { logger } from "@/utils/logger.js";
 import { User } from "@/types/fastify.js";
 
@@ -43,46 +42,33 @@ async function handleAuthentication(
 
   try {
     const decoded = verifyAccessToken(accessToken);
-    // Fetch full user details to attach roles/flags
-    try {
-      const dbUser = await prisma.user.findUnique({
-        where: { id: decoded.userId },
-        select: {
-          id: true,
-          role: true,
-          email: true,
-          username: true,
-        },
-      });
-
-      if (dbUser) {
-        request.user = {
-          userId: decoded.userId,
-          id: dbUser.id,
-          role: dbUser.role,
-          email: dbUser.email,
-          username: dbUser.username,
-        } as User;
-      } else {
-        request.user = decoded as User;
-      }
-    } catch (dbErr: unknown) {
-      // DB 장애 시 JWT 페이로드로 폴백 — role 등 최신 상태가 반영되지 않을 수 있음
-      logger.warn("DB lookup failed during auth, falling back to JWT payload", { error: dbErr instanceof Error ? dbErr.message : String(dbErr) });
-      request.user = decoded as User;
-    }
+    request.user = {
+      userId: decoded.userId,
+      id: decoded.userId,
+      role: decoded.role,
+      email: decoded.email,
+      username: decoded.username,
+    } as User;
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "TokenExpiredError" && refreshToken) {
       try {
         const refreshDecoded = verifyRefreshToken(refreshToken);
         const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(
           refreshDecoded.userId,
-          refreshDecoded.email || ""
+          refreshDecoded.email,
+          refreshDecoded.role,
+          refreshDecoded.username,
         );
 
         setAuthCookies(reply, newAccessToken, newRefreshToken);
 
-        request.user = refreshDecoded as User;
+        request.user = {
+          userId: refreshDecoded.userId,
+          id: refreshDecoded.userId,
+          role: refreshDecoded.role,
+          email: refreshDecoded.email,
+          username: refreshDecoded.username,
+        } as User;
         logger.info("Token refreshed", { userId: refreshDecoded.userId });
       } catch (refreshErr: unknown) {
         logger.warn("Refresh token verification failed", {

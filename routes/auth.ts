@@ -13,7 +13,6 @@ import { config } from "@/config/index.js";
 import { logger } from "@/utils/logger.js";
 import { AppError, BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError } from "@/lib/errors.js";
 
-// Services
 import { getOAuthService, getSupportedProviders } from "@/services/oauth/index.js";
 import {
   findOrCreateUser,
@@ -21,7 +20,6 @@ import {
   clearAuthCookies,
   getSessionInfo,
 } from "@/services/auth.service.js";
-import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
 
 interface OAuthState {
@@ -64,16 +62,15 @@ function clearOAuthStateCookie(reply: FastifyReply): void {
 
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
-  /**
-   * GET /auth/oauth?type=github|google
-   * OAuth 로그인 시작 - 제공자 인증 페이지로 리다이렉트
-   */
   fastify.get("/oauth", {
+    config: {
+      rateLimit: { max: 10, timeWindow: "15 minutes" },
+    },
     schema: {
       tags: ["Auth"],
       summary: "OAuth 로그인 시작",
       description: "OAuth 제공자(GitHub, Google)의 인증 페이지로 리다이렉트합니다.",
-      querystring: zodToJsonSchema(oauthQuerySchema),
+      querystring: oauthQuerySchema,
       response: {
         302: { description: "OAuth 제공자로 리다이렉트", type: "null" },
         400: {
@@ -87,15 +84,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
-      const parseResult = oauthQuerySchema.safeParse(request.query);
-
-      if (!parseResult.success) {
-        throw new BadRequestError(
-          `지원하지 않는 OAuth 제공자입니다. 지원: ${getSupportedProviders().join(", ")}`
-        );
-      }
-
-      const { type } = parseResult.data;
+      const { type } = oauthQuerySchema.parse(request.query);
       const service = getOAuthService(type);
 
       if (!service?.isConfigured()) {
@@ -118,20 +107,19 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Auth"],
       summary: "OAuth 콜백",
       description: "OAuth 제공자로부터의 콜백을 처리합니다. 인증 성공 시 프론트엔드로 리다이렉트됩니다.",
-      querystring: zodToJsonSchema(oauthCallbackSchema),
+      querystring: oauthCallbackSchema,
       response: {
         302: { description: "프론트엔드로 리다이렉트", type: "null" },
       },
     },
+    attachValidation: true,
     handler: async (request: FastifyRequest, reply: FastifyReply) => {
-      const parseResult = oauthCallbackSchema.safeParse(request.query);
-
-      if (!parseResult.success) {
+      if (request.validationError) {
         logger.warn("OAuth callback missing parameters", { query: request.query });
         return reply.redirect(`${config.frontendUrl}/auth/error?message=invalid_request`);
       }
 
-      const { code, state } = parseResult.data;
+      const { code, state } = request.query as { code: string; state: string };
       const saved = getOAuthStateCookie(request);
 
       // CSRF 검증
@@ -156,7 +144,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         const accessToken = await service.exchangeCode(code);
         const userInfo = await service.fetchUserInfo(accessToken);
         const user = await findOrCreateUser(userInfo);
-        const tokens = generateTokens(user.id, user.email);
+        const tokens = generateTokens(user.id, user.email, user.role, user.username);
         setAuthCookies(reply, tokens.accessToken, tokens.refreshToken);
 
         return reply.redirect(`${config.frontendUrl}/auth/callback?provider=${saved.provider}`);
@@ -180,6 +168,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
    * 토큰 갱신
    */
   fastify.post("/refresh", {
+    config: {
+      rateLimit: { max: 20, timeWindow: "15 minutes" },
+    },
     schema: {
       tags: ["Auth"],
       summary: "토큰 갱신",
@@ -216,7 +207,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
         const user = await prisma.user.findUnique({
           where: { id: decoded.userId },
-          select: { id: true, email: true, is_active: true },
+          select: { id: true, email: true, role: true, username: true, is_active: true },
         });
 
         if (!user) {
@@ -229,7 +220,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           throw new UnauthorizedError("비활성화된 계정입니다.");
         }
 
-        const tokens = generateTokens(user.id, user.email);
+        const tokens = generateTokens(user.id, user.email, user.role, user.username);
         setAuthCookies(reply, tokens.accessToken, tokens.refreshToken);
 
         return reply.send({
@@ -357,7 +348,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Auth"],
         summary: "[DEV] 개발용 즉시 로그인",
         description: "개발 환경 전용. 지정한 role의 첫 번째 활성 유저로 즉시 로그인합니다.",
-        body: zodToJsonSchema(devLoginSchema),
+        body: devLoginSchema,
         response: {
           200: {
             type: "object",
@@ -387,7 +378,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           throw new NotFoundError(`활성 ${role} 유저`);
         }
 
-        const tokens = generateTokens(user.id, user.email);
+        const tokens = generateTokens(user.id, user.email, user.role, user.username);
         setAuthCookies(reply, tokens.accessToken, tokens.refreshToken);
 
         return reply.send({
