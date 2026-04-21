@@ -70,37 +70,39 @@ export async function createPost(input: CreatePostInput) {
     publishedAt = new Date();
   }
 
-  const shouldIncrementCount = input.status === "PUBLISHED";
-
-  return prisma.$transaction(async (tx) => {
-    const post = await tx.post.create({
-      data: {
-        title: input.title,
-        slug,
-        content: input.content,
-        excerpt: input.excerpt,
-        cover_image: input.cover_image,
-        status: input.status,
-        category_id: input.category_id,
-        published_at: publishedAt,
-        ...(input.tag_ids && {
-          tags: {
-            connect: input.tag_ids.map((id) => ({ id })),
-          },
-        }),
-      },
-      select: postDetailSelect,
-    });
-
-    if (shouldIncrementCount && input.category_id) {
-      await tx.category.update({
-        where: { id: input.category_id },
-        data: { post_count: { increment: 1 } },
-      });
-    }
-
-    return post;
+  const createOp = prisma.post.create({
+    data: {
+      title: input.title,
+      slug,
+      content: input.content,
+      excerpt: input.excerpt,
+      cover_image: input.cover_image,
+      status: input.status,
+      category_id: input.category_id,
+      published_at: publishedAt,
+      ...(input.tag_ids && {
+        tags: {
+          connect: input.tag_ids.map((id) => ({ id })),
+        },
+      }),
+    },
+    select: postDetailSelect,
   });
+
+  const shouldIncrementCount = input.status === "PUBLISHED" && input.category_id;
+
+  if (shouldIncrementCount) {
+    const [post] = await prisma.$transaction([
+      createOp,
+      prisma.category.update({
+        where: { id: input.category_id! },
+        data: { post_count: { increment: 1 } },
+      }),
+    ]);
+    return post;
+  }
+
+  return createOp;
 }
 
 /**
@@ -142,38 +144,40 @@ export async function updatePost(id: string, input: UpdatePostInput) {
   const newCategoryId = input.category_id !== undefined ? input.category_id : oldCategoryId;
   const categoryChanged = input.category_id !== undefined && oldCategoryId !== newCategoryId;
 
-  return prisma.$transaction(async (tx) => {
-    const updated = await tx.post.update({
-      where: { id },
-      data: {
-        ...(input.title !== undefined && { title: input.title }),
-        ...(newSlug && { slug: newSlug }),
-        ...(input.content !== undefined && { content: input.content }),
-        ...(input.excerpt !== undefined && { excerpt: input.excerpt }),
-        ...(input.cover_image !== undefined && { cover_image: input.cover_image }),
-        ...(input.status !== undefined && { status: input.status }),
-        ...(input.category_id !== undefined && { category_id: input.category_id }),
-        ...(publishedAt && { published_at: publishedAt }),
-        ...(input.tag_ids && {
-          tags: {
-            set: input.tag_ids.map((tagId) => ({ id: tagId })),
-          },
-        }),
-      },
-      select: postDetailSelect,
-    });
-
-    // 카테고리 post_count 동기화
-    await syncCategoryPostCount(tx, {
-      wasPublished,
-      willBePublished,
-      categoryChanged,
-      oldCategoryId,
-      newCategoryId,
-    });
-
-    return updated;
+  const updateOp = prisma.post.update({
+    where: { id },
+    data: {
+      ...(input.title !== undefined && { title: input.title }),
+      ...(newSlug && { slug: newSlug }),
+      ...(input.content !== undefined && { content: input.content }),
+      ...(input.excerpt !== undefined && { excerpt: input.excerpt }),
+      ...(input.cover_image !== undefined && { cover_image: input.cover_image }),
+      ...(input.status !== undefined && { status: input.status }),
+      ...(input.category_id !== undefined && { category_id: input.category_id }),
+      ...(publishedAt && { published_at: publishedAt }),
+      ...(input.tag_ids && {
+        tags: {
+          set: input.tag_ids.map((tagId) => ({ id: tagId })),
+        },
+      }),
+    },
+    select: postDetailSelect,
   });
+
+  const countOps = buildCategoryCountOps({
+    wasPublished,
+    willBePublished,
+    categoryChanged,
+    oldCategoryId,
+    newCategoryId,
+  });
+
+  if (countOps.length > 0) {
+    const [updated] = await prisma.$transaction([updateOp, ...countOps]);
+    return updated;
+  }
+
+  return updateOp;
 }
 
 /**
@@ -194,21 +198,24 @@ export async function deletePost(id: string) {
     throw new NotFoundError("게시글");
   }
 
-  const shouldDecrementCount = post.status === "PUBLISHED";
+  const shouldDecrementCount = post.status === "PUBLISHED" && post.category_id;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.post.delete({ where: { id } });
-
-    if (shouldDecrementCount && post.category_id) {
-      await tx.category.update({
-        where: { id: post.category_id },
+  if (shouldDecrementCount) {
+    await prisma.$transaction([
+      prisma.post.delete({ where: { id } }),
+      prisma.category.update({
+        where: { id: post.category_id! },
         data: { post_count: { decrement: 1 } },
-      });
-    }
-  });
+      }),
+    ]);
+  } else {
+    await prisma.post.delete({ where: { id } });
+  }
 }
 
-interface SyncCategoryCountParams {
+import { Prisma } from "@/lib/generated/prisma/client.js";
+
+interface CategoryCountParams {
   wasPublished: boolean;
   willBePublished: boolean;
   categoryChanged: boolean;
@@ -217,45 +224,45 @@ interface SyncCategoryCountParams {
 }
 
 /**
- * 카테고리별 게시글 수 동기화
+ * 카테고리별 게시글 수 동기화를 위한 PrismaPromise 배열 생성
  *
  * 3가지 케이스:
  * - PUBLISHED → DRAFT: 기존 카테고리 -1
  * - DRAFT → PUBLISHED: 새 카테고리 +1
  * - PUBLISHED 유지 + 카테고리 변경: 이전 -1, 새 +1
  */
-async function syncCategoryPostCount(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  params: SyncCategoryCountParams,
-) {
+function buildCategoryCountOps(params: CategoryCountParams): Prisma.PrismaPromise<unknown>[] {
   const { wasPublished, willBePublished, categoryChanged, oldCategoryId, newCategoryId } = params;
+  const ops: Prisma.PrismaPromise<unknown>[] = [];
 
   if (wasPublished && !willBePublished) {
     if (oldCategoryId) {
-      await tx.category.update({
+      ops.push(prisma.category.update({
         where: { id: oldCategoryId },
         data: { post_count: { decrement: 1 } },
-      });
+      }));
     }
   } else if (!wasPublished && willBePublished) {
     if (newCategoryId) {
-      await tx.category.update({
+      ops.push(prisma.category.update({
         where: { id: newCategoryId },
         data: { post_count: { increment: 1 } },
-      });
+      }));
     }
   } else if (wasPublished && willBePublished && categoryChanged) {
     if (oldCategoryId) {
-      await tx.category.update({
+      ops.push(prisma.category.update({
         where: { id: oldCategoryId },
         data: { post_count: { decrement: 1 } },
-      });
+      }));
     }
     if (newCategoryId) {
-      await tx.category.update({
+      ops.push(prisma.category.update({
         where: { id: newCategoryId },
         data: { post_count: { increment: 1 } },
-      });
+      }));
     }
   }
+
+  return ops;
 }
