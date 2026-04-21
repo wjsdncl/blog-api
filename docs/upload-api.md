@@ -11,11 +11,12 @@
 
 ---
 
-## Endpoint
+## Endpoints
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | POST | `/upload` | Required | 이미지 업로드 |
+| GET | `/upload/storage` | OWNER | Storage 이미지 목록 조회 (페이지네이션) |
 
 ---
 
@@ -24,6 +25,7 @@
 ### POST /upload
 
 `multipart/form-data` 형식으로 파일을 전송한다.
+업로드 시 `sharp` 기반 이미지 최적화 (리사이징 + WEBP 변환 등)가 자동 적용된다.
 
 ```
 Content-Type: multipart/form-data
@@ -34,7 +36,35 @@ Field name: file
 // Response (200)
 {
   "success": true,
-  "url": "https://zrkselfyyqkkqcmxhjlt.supabase.co/storage/v1/object/public/images/posts/a1b2c3d4-filename.png"
+  "url": "https://zrkselfyyqkkqcmxhjlt.supabase.co/storage/v1/object/public/images/posts/a1b2c3d4-filename.webp"
+}
+```
+
+### GET /upload/storage
+
+Supabase Storage `images` 버킷에 저장된 이미지 목록을 페이지네이션으로 반환한다.
+응답은 30초간 in-memory 캐시되며, 새 업로드 발생 시 캐시는 무효화된다.
+
+```
+Query Parameters:
+- page: number (default: 1, 페이지당 20개)
+```
+
+```json
+// Response (200)
+{
+  "success": true,
+  "data": [
+    {
+      "name": "posts/a1b2c3d4-filename.webp",
+      "url": "https://zrkselfyyqkkqcmxhjlt.supabase.co/storage/v1/object/public/images/posts/a1b2c3d4-filename.webp",
+      "size": 102400,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "hasNext": true,
+  "nextPage": 2,
+  "total": 42
 }
 ```
 

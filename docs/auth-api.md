@@ -95,6 +95,21 @@ Client                    Backend                   OAuth Provider
 
 ---
 
+## Rate Limit
+
+남용 방지를 위해 인증 관련 엔드포인트에 라우트별 제한이 적용된다.
+
+| Endpoint | 제한 |
+|----------|------|
+| `GET /auth/oauth` | 15분당 10회 |
+| `POST /auth/refresh` | 15분당 20회 |
+| `POST /auth/logout` | 글로벌 기본값 |
+| `GET /auth/session` | 글로벌 기본값 |
+
+제한 초과 시 `429 Too Many Requests` 응답이 반환된다.
+
+---
+
 ## 쿠키 설정
 
 | Cookie | HttpOnly | MaxAge | 용도 |

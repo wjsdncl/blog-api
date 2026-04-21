@@ -90,7 +90,7 @@ Query Parameters:
 ### GET /posts/:slug
 
 ```json
-// Response (로그인 시 isLiked 포함)
+// Response (로그인 시 is_liked 포함)
 {
   "success": true,
   "data": {
@@ -174,7 +174,7 @@ Query Parameters:
 // Response
 {
   "success": true,
-  "data": { "isLiked": true },
+  "data": { "is_liked": true },
   "message": "좋아요를 눌렀습니다."
 }
 ```
