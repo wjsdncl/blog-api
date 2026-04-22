@@ -12,6 +12,7 @@ import { generateTokens, verifyRefreshToken, verifyAccessToken } from "@/utils/a
 import { config } from "@/config/index.js";
 import { logger } from "@/utils/logger.js";
 import { AppError, BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError } from "@/lib/errors.js";
+import { zodToJsonSchema } from "@/utils/zodToJsonSchema.js";
 
 import { getOAuthService, getSupportedProviders } from "@/services/oauth/index.js";
 import {
@@ -70,7 +71,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Auth"],
       summary: "OAuth 로그인 시작",
       description: "OAuth 제공자(GitHub, Google)의 인증 페이지로 리다이렉트합니다.",
-      querystring: oauthQuerySchema,
+      querystring: zodToJsonSchema(oauthQuerySchema),
       response: {
         302: { description: "OAuth 제공자로 리다이렉트", type: "null" },
         400: {
@@ -107,7 +108,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       tags: ["Auth"],
       summary: "OAuth 콜백",
       description: "OAuth 제공자로부터의 콜백을 처리합니다. 인증 성공 시 프론트엔드로 리다이렉트됩니다.",
-      querystring: oauthCallbackSchema,
+      querystring: zodToJsonSchema(oauthCallbackSchema),
       response: {
         302: { description: "프론트엔드로 리다이렉트", type: "null" },
       },
@@ -348,7 +349,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Auth"],
         summary: "[DEV] 개발용 즉시 로그인",
         description: "개발 환경 전용. 지정한 role의 첫 번째 활성 유저로 즉시 로그인합니다.",
-        body: devLoginSchema,
+        body: zodToJsonSchema(devLoginSchema),
         response: {
           200: {
             type: "object",
