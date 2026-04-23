@@ -1,8 +1,8 @@
 /**
  * 게시글 서비스
  *
- * 모든 CUD 작업은 트랜잭션으로 처리.
- * 게시글 상태(DRAFT/PUBLISHED/SCHEDULED) 변경 시 카테고리의 post_count를 자동 동기화.
+ * Category.post_count는 DB 트리거(count_triggers.sql)가 자동 동기화.
+ * 서비스 레이어에서 수동 증감하면 이중 카운트가 발생하므로 여기선 건드리지 않는다.
  */
 import { prisma } from "@/lib/prismaClient.js";
 import { NotFoundError } from "@/lib/errors.js";
@@ -57,8 +57,6 @@ export const postDetailSelect = {
 
 /**
  * 게시글 생성
- * - 슬러그 자동 생성
- * - PUBLISHED 상태 시 카테고리 post_count 증가
  */
 export async function createPost(input: CreatePostInput) {
   const slug = await generateUniqueSlug("post", input.title);
@@ -70,7 +68,7 @@ export async function createPost(input: CreatePostInput) {
     publishedAt = new Date();
   }
 
-  const createOp = prisma.post.create({
+  return prisma.post.create({
     data: {
       title: input.title,
       slug,
@@ -88,27 +86,11 @@ export async function createPost(input: CreatePostInput) {
     },
     select: postDetailSelect,
   });
-
-  const shouldIncrementCount = input.status === "PUBLISHED" && input.category_id;
-
-  if (shouldIncrementCount) {
-    const [post] = await prisma.$transaction([
-      createOp,
-      prisma.category.update({
-        where: { id: input.category_id! },
-        data: { post_count: { increment: 1 } },
-      }),
-    ]);
-    return post;
-  }
-
-  return createOp;
 }
 
 /**
  * 게시글 수정
  * - 제목 변경 시 슬러그 재생성
- * - 상태/카테고리 변경 시 post_count 동기화
  */
 export async function updatePost(id: string, input: UpdatePostInput) {
   const post = await prisma.post.findUnique({
@@ -117,7 +99,6 @@ export async function updatePost(id: string, input: UpdatePostInput) {
       id: true,
       title: true,
       status: true,
-      category_id: true,
     },
   });
 
@@ -134,17 +115,7 @@ export async function updatePost(id: string, input: UpdatePostInput) {
 
   const publishedAt = calculatePublishedAt(input.status, input.published_at, post.status);
 
-  // post_count 동기화를 위한 상태 계산
-  const oldStatus = post.status;
-  const newStatus = input.status || oldStatus;
-  const wasPublished = oldStatus === "PUBLISHED";
-  const willBePublished = newStatus === "PUBLISHED";
-
-  const oldCategoryId = post.category_id;
-  const newCategoryId = input.category_id !== undefined ? input.category_id : oldCategoryId;
-  const categoryChanged = input.category_id !== undefined && oldCategoryId !== newCategoryId;
-
-  const updateOp = prisma.post.update({
+  return prisma.post.update({
     where: { id },
     data: {
       ...(input.title !== undefined && { title: input.title }),
@@ -163,106 +134,20 @@ export async function updatePost(id: string, input: UpdatePostInput) {
     },
     select: postDetailSelect,
   });
-
-  const countOps = buildCategoryCountOps({
-    wasPublished,
-    willBePublished,
-    categoryChanged,
-    oldCategoryId,
-    newCategoryId,
-  });
-
-  if (countOps.length > 0) {
-    const [updated] = await prisma.$transaction([updateOp, ...countOps]);
-    return updated;
-  }
-
-  return updateOp;
 }
 
 /**
  * 게시글 삭제
- * - PUBLISHED 상태 시 카테고리 post_count 감소
  */
 export async function deletePost(id: string) {
   const post = await prisma.post.findUnique({
     where: { id },
-    select: {
-      id: true,
-      status: true,
-      category_id: true,
-    },
+    select: { id: true },
   });
 
   if (!post) {
     throw new NotFoundError("게시글");
   }
 
-  const shouldDecrementCount = post.status === "PUBLISHED" && post.category_id;
-
-  if (shouldDecrementCount) {
-    await prisma.$transaction([
-      prisma.post.delete({ where: { id } }),
-      prisma.category.update({
-        where: { id: post.category_id! },
-        data: { post_count: { decrement: 1 } },
-      }),
-    ]);
-  } else {
-    await prisma.post.delete({ where: { id } });
-  }
-}
-
-import { Prisma } from "@/lib/generated/prisma/client.js";
-
-interface CategoryCountParams {
-  wasPublished: boolean;
-  willBePublished: boolean;
-  categoryChanged: boolean;
-  oldCategoryId: string | null;
-  newCategoryId: string | null | undefined;
-}
-
-/**
- * 카테고리별 게시글 수 동기화를 위한 PrismaPromise 배열 생성
- *
- * 3가지 케이스:
- * - PUBLISHED → DRAFT: 기존 카테고리 -1
- * - DRAFT → PUBLISHED: 새 카테고리 +1
- * - PUBLISHED 유지 + 카테고리 변경: 이전 -1, 새 +1
- */
-function buildCategoryCountOps(params: CategoryCountParams): Prisma.PrismaPromise<unknown>[] {
-  const { wasPublished, willBePublished, categoryChanged, oldCategoryId, newCategoryId } = params;
-  const ops: Prisma.PrismaPromise<unknown>[] = [];
-
-  if (wasPublished && !willBePublished) {
-    if (oldCategoryId) {
-      ops.push(prisma.category.update({
-        where: { id: oldCategoryId },
-        data: { post_count: { decrement: 1 } },
-      }));
-    }
-  } else if (!wasPublished && willBePublished) {
-    if (newCategoryId) {
-      ops.push(prisma.category.update({
-        where: { id: newCategoryId },
-        data: { post_count: { increment: 1 } },
-      }));
-    }
-  } else if (wasPublished && willBePublished && categoryChanged) {
-    if (oldCategoryId) {
-      ops.push(prisma.category.update({
-        where: { id: oldCategoryId },
-        data: { post_count: { decrement: 1 } },
-      }));
-    }
-    if (newCategoryId) {
-      ops.push(prisma.category.update({
-        where: { id: newCategoryId },
-        data: { post_count: { increment: 1 } },
-      }));
-    }
-  }
-
-  return ops;
+  await prisma.post.delete({ where: { id } });
 }
