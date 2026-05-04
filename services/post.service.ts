@@ -1,8 +1,8 @@
 /**
  * 게시글 서비스
  *
- * Category.post_count는 DB 트리거(count_triggers.sql)가 자동 동기화.
- * 서비스 레이어에서 수동 증감하면 이중 카운트가 발생하므로 여기선 건드리지 않는다.
+ * Category.post_count는 컬럼이 아닌 런타임 집계(routes/categories.ts)로 계산한다.
+ * Post.like_count / comment_count는 like.service / comment.service에서 수동 증감한다.
  */
 import { prisma } from "@/lib/prismaClient.js";
 import { NotFoundError } from "@/lib/errors.js";
