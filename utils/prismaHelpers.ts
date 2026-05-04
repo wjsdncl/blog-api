@@ -97,6 +97,7 @@ export async function checkUniqueName(
 // 서버 재시작 시 초기화되지만 조회수 정확도보다 성능을 우선
 const VIEW_WINDOW_MS = 24 * 60 * 60 * 1000;
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+const VIEW_CACHE_MAX_SIZE = 50_000;
 const viewCache = new Map<string, number>();
 
 let cleanupStarted = false;
@@ -109,6 +110,18 @@ function ensureCleanupInterval(): void {
       if (expiresAt <= now) viewCache.delete(key);
     }
   }, CLEANUP_INTERVAL_MS);
+}
+
+// 상한 초과 시 가장 오래된(삽입 순서) 항목부터 제거 — Map은 삽입 순서를 보존
+function enforceViewCacheLimit(): void {
+  if (viewCache.size <= VIEW_CACHE_MAX_SIZE) return;
+  const overflow = viewCache.size - VIEW_CACHE_MAX_SIZE;
+  const iterator = viewCache.keys();
+  for (let i = 0; i < overflow; i++) {
+    const next = iterator.next();
+    if (next.done) break;
+    viewCache.delete(next.value);
+  }
 }
 
 /**
@@ -129,6 +142,7 @@ export async function incrementViewCount(
   if (viewCache.has(cacheKey) && viewCache.get(cacheKey)! > now) return;
 
   viewCache.set(cacheKey, now + VIEW_WINDOW_MS);
+  enforceViewCacheLimit();
 
   const prismaModel = prisma[model] as { update: (args: unknown) => Promise<unknown> };
 
