@@ -271,6 +271,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * GET /auth/session
    * 현재 인증 상태 확인
+   *
+   * 다른 엔드포인트는 Authorization 헤더로 인증하지만,
+   * 이 라우트만 access_token 쿠키를 직접 읽는다.
+   * Next.js 미들웨어 등 헤더를 붙이기 어려운 클라이언트가 쿠키만으로
+   * 인증 상태를 빠르게 조회할 수 있도록 하기 위함이다.
    */
   fastify.get("/session", {
     schema: {
