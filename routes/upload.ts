@@ -5,64 +5,11 @@
 import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { requiredAuthenticate, requireOwner } from "@/middleware/auth.js";
 import { BadRequestError } from "@/lib/errors.js";
-import { supabase } from "@/lib/supabase.js";
-import { processImage } from "@/utils/imageOptimizer.js";
-
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const BUCKET_NAME = "images";
-
-const IMAGE_MIME_PREFIXES = ["image/"];
-const STORAGE_FOLDERS = ["", "posts"];
-
-const STORAGE_PAGE_SIZE = 20;
-const CACHE_TTL_MS = 30_000; // 30초
-
-type StorageImage = { name: string; url: string; size: number; createdAt: string };
-let imageCache: { data: StorageImage[]; expiresAt: number } | null = null;
-
-async function fetchAllStorageImages(): Promise<StorageImage[]> {
-  if (imageCache && Date.now() < imageCache.expiresAt) {
-    return imageCache.data;
-  }
-
-  const allImages: StorageImage[] = [];
-
-  for (const folder of STORAGE_FOLDERS) {
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .list(folder || undefined, {
-        limit: 500,
-        sortBy: { column: "created_at", order: "desc" },
-      });
-
-    if (error || !data) continue;
-
-    for (const file of data) {
-      if (!file.metadata?.mimetype) continue;
-      const isImage = IMAGE_MIME_PREFIXES.some((prefix) =>
-        (file.metadata.mimetype as string).startsWith(prefix)
-      );
-      if (!isImage) continue;
-
-      const filePath = folder ? `${folder}/${file.name}` : file.name;
-      const { data: publicUrlData } = supabase.storage
-        .from(BUCKET_NAME)
-        .getPublicUrl(filePath);
-
-      allImages.push({
-        name: filePath,
-        url: publicUrlData.publicUrl,
-        size: file.metadata.size as number,
-        createdAt: file.created_at,
-      });
-    }
-  }
-
-  allImages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  imageCache = { data: allImages, expiresAt: Date.now() + CACHE_TTL_MS };
-  return allImages;
-}
+import {
+  STORAGE_PAGE_SIZE,
+  fetchAllStorageImages,
+  uploadImage,
+} from "@/services/upload.service.js";
 
 const uploadRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /storage - Storage 이미지 목록 조회 (페이지네이션)
@@ -149,42 +96,13 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     const file = await request.file();
     if (!file) throw new BadRequestError("파일이 첨부되지 않았습니다.");
 
-    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      throw new BadRequestError("지원되지 않는 이미지 형식입니다. (JPEG, PNG, GIF, WEBP만 허용)");
-    }
-
-    const originalBuffer = await file.toBuffer();
-    if (originalBuffer.length > MAX_FILE_SIZE) {
-      throw new BadRequestError("파일 크기가 10MB를 초과합니다.");
-    }
-
-    const { buffer, contentType, filePath } = await processImage(
-      originalBuffer,
-      file.mimetype,
-      file.filename,
-    );
-
-    const { error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(filePath, buffer, {
-        contentType,
-        upsert: false,
-      });
-
-    if (error) {
-      throw new BadRequestError(`파일 업로드에 실패했습니다: ${error.message}`);
-    }
-
-    const { data: publicUrlData } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(filePath);
-
-    imageCache = null;
-
-    return reply.send({
-      success: true,
-      url: publicUrlData.publicUrl,
+    const url = await uploadImage({
+      buffer: await file.toBuffer(),
+      mimetype: file.mimetype,
+      filename: file.filename,
     });
+
+    return reply.send({ success: true, url });
   });
 };
 
