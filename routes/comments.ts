@@ -56,6 +56,21 @@ const commentWithRepliesSelect = {
   },
 } as const;
 
+/** 응답 매핑용 raw 타입 — commentLikes는 로그인 시에만 select에 포함된다 */
+type RawCommentNode = {
+  _count: { commentLikes: number };
+  commentLikes?: { id: string }[];
+};
+
+function mapCommentNode<T extends RawCommentNode>(node: T) {
+  const { _count, commentLikes, ...rest } = node;
+  return {
+    ...rest,
+    like_count: _count.commentLikes,
+    is_liked: commentLikes ? commentLikes.length > 0 : false,
+  };
+}
+
 const commentsRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * GET /comments?post_id=xxx
@@ -133,24 +148,15 @@ const commentsRoutes: FastifyPluginAsync = async (fastify) => {
         prisma.comment.count({ where: whereCondition }),
       ]);
 
-      const data = comments.map((comment) => ({
-        ...comment,
-        like_count: comment._count.commentLikes,
-        is_liked: (comment as Record<string, unknown>).commentLikes
-          ? ((comment as Record<string, unknown>).commentLikes as unknown[]).length > 0
-          : false,
-        _count: undefined,
-        commentLikes: undefined,
-        replies: comment.replies.map((reply) => ({
-          ...reply,
-          like_count: reply._count.commentLikes,
-          is_liked: (reply as Record<string, unknown>).commentLikes
-            ? ((reply as Record<string, unknown>).commentLikes as unknown[]).length > 0
-            : false,
-          _count: undefined,
-          commentLikes: undefined,
-        })),
-      }));
+      const data = comments.map((comment) => {
+        const mapped = mapCommentNode(comment as RawCommentNode & typeof comment);
+        return {
+          ...mapped,
+          replies: comment.replies.map((reply) =>
+            mapCommentNode(reply as RawCommentNode & typeof reply),
+          ),
+        };
+      });
 
       return reply.send({
         success: true,
